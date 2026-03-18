@@ -20,3 +20,8 @@ This created a usable current-catalog dimension for product attributes and curre
 
 ## Portfolio significance
 This milestone shows practical dimensional modeling and the use of source profiling to resolve real catalog quality issues.
+
+## Follow-up improvement
+A later review found that many catalog variants had null `title` values because the source-derived title was often present only on the smallest size variant in a SKU family. 
+The model was improved to propagate a cleaned title from the smallest titled sibling variant across the family, with `handle` used as a last-resort fallback. 
+This reduced null titles in `dim_products` from 1,645 to 0 and also eliminated catalog-side null `product_name` values in `dim_products_historical`.
