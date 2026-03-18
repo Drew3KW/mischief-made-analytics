@@ -22,3 +22,9 @@ SELECT
 FROM `mischief-made-analytics.marts.dim_products_historical`
 GROUP BY 1
 ORDER BY row_count DESC;
+
+-- Check 4: null catalog product_name count
+SELECT COUNT(*) AS null_catalog_product_name_rows
+FROM marts.dim_products_historical
+WHERE source_type = 'catalog'
+  AND product_name IS NULL;
