@@ -310,7 +310,6 @@ family_lookup AS (
          'tote bag','tote-bag','tote_bag','tote','decal','decal sticker'
        )
       THEN normalized_sku_family
-
       WHEN normalized_product_name IS NULL
         OR normalized_product_name = ''
         OR normalized_product_name IN (
@@ -318,7 +317,6 @@ family_lookup AS (
           'pin','pins','magnet','magnets','tote bag','tote','decal','decal sticker'
         )
       THEN normalized_product_key
-
       ELSE normalized_product_name_family_key
     END AS product_family_key
   FROM product_base
@@ -351,74 +349,95 @@ variant_base AS (
   WHERE o.cancelled_at_ts IS NULL
 ),
 
-variant_rollup AS (
+variant_metrics AS (
   SELECT
     vb.product_family_key,
     vb.sku,
-    vb.product_name,
-
     SUM(CASE
       WHEN vb.order_month BETWEEN DATE_SUB(mm.latest_month, INTERVAL 2 MONTH) AND mm.latest_month
-      THEN vb.quantity
-      ELSE 0
+      THEN vb.quantity ELSE 0
     END) AS units_last_3m,
-
     ROUND(SUM(CASE
       WHEN vb.order_month BETWEEN DATE_SUB(mm.latest_month, INTERVAL 2 MONTH) AND mm.latest_month
-      THEN vb.gross_item_revenue
-      ELSE 0
+      THEN vb.gross_item_revenue ELSE 0
     END), 2) AS revenue_last_3m,
-
     SUM(CASE
       WHEN vb.order_month BETWEEN DATE_SUB(mm.latest_month, INTERVAL 5 MONTH) AND DATE_SUB(mm.latest_month, INTERVAL 3 MONTH)
-      THEN vb.quantity
-      ELSE 0
+      THEN vb.quantity ELSE 0
     END) AS units_prior_3m,
-
     ROUND(SUM(CASE
       WHEN vb.order_month BETWEEN DATE_SUB(mm.latest_month, INTERVAL 5 MONTH) AND DATE_SUB(mm.latest_month, INTERVAL 3 MONTH)
-      THEN vb.gross_item_revenue
-      ELSE 0
+      THEN vb.gross_item_revenue ELSE 0
     END), 2) AS revenue_prior_3m,
-
     SUM(vb.quantity) AS lifetime_units_sold,
     ROUND(SUM(vb.gross_item_revenue), 2) AS lifetime_revenue
   FROM variant_base AS vb
   CROSS JOIN max_month AS mm
   GROUP BY
     vb.product_family_key,
-    vb.sku,
-    vb.product_name
+    vb.sku
+),
+
+canonical_variant_names AS (
+  SELECT
+    product_family_key,
+    sku,
+    product_name
+  FROM (
+    SELECT
+      product_family_key,
+      sku,
+      product_name,
+      SUM(quantity) AS total_units,
+      SUM(gross_item_revenue) AS total_revenue,
+      ROW_NUMBER() OVER (
+        PARTITION BY product_family_key, sku
+        ORDER BY
+          SUM(quantity) DESC,
+          SUM(gross_item_revenue) DESC,
+          LENGTH(product_name) ASC,
+          product_name ASC
+      ) AS rn
+    FROM variant_base
+    GROUP BY
+      product_family_key,
+      sku,
+      product_name
+  )
+  WHERE rn = 1
 )
 
 SELECT
-  vr.product_family_key,
+  vm.product_family_key,
   fn.product_family_name,
-  vr.sku,
-  vr.product_name,
-  vr.lifetime_units_sold,
-  vr.lifetime_revenue,
-  vr.units_last_3m,
-  vr.units_prior_3m,
-  vr.units_last_3m - vr.units_prior_3m AS units_change_3m_vs_prior_3m,
+  vm.sku,
+  cvn.product_name,
+  vm.lifetime_units_sold,
+  vm.lifetime_revenue,
+  vm.units_last_3m,
+  vm.units_prior_3m,
+  vm.units_last_3m - vm.units_prior_3m AS units_change_3m_vs_prior_3m,
   CASE
-    WHEN vr.units_prior_3m = 0 AND vr.units_last_3m > 0 THEN NULL
-    ELSE ROUND(((vr.units_last_3m - vr.units_prior_3m) / NULLIF(vr.units_prior_3m, 0)) * 100, 2)
+    WHEN vm.units_prior_3m = 0 AND vm.units_last_3m > 0 THEN NULL
+    ELSE ROUND(((vm.units_last_3m - vm.units_prior_3m) / NULLIF(vm.units_prior_3m, 0)) * 100, 2)
   END AS units_pct_change_3m_vs_prior_3m,
-  vr.revenue_last_3m,
-  vr.revenue_prior_3m,
-  ROUND(vr.revenue_last_3m - vr.revenue_prior_3m, 2) AS revenue_change_3m_vs_prior_3m,
+  vm.revenue_last_3m,
+  vm.revenue_prior_3m,
+  ROUND(vm.revenue_last_3m - vm.revenue_prior_3m, 2) AS revenue_change_3m_vs_prior_3m,
   CASE
-    WHEN vr.revenue_prior_3m = 0 AND vr.revenue_last_3m > 0 THEN NULL
-    ELSE ROUND(((vr.revenue_last_3m - vr.revenue_prior_3m) / NULLIF(vr.revenue_prior_3m, 0)) * 100, 2)
+    WHEN vm.revenue_prior_3m = 0 AND vm.revenue_last_3m > 0 THEN NULL
+    ELSE ROUND(((vm.revenue_last_3m - vm.revenue_prior_3m) / NULLIF(vm.revenue_prior_3m, 0)) * 100, 2)
   END AS revenue_pct_change_3m_vs_prior_3m
-FROM variant_rollup AS vr
+FROM variant_metrics AS vm
 LEFT JOIN family_names AS fn
-  ON vr.product_family_key = fn.product_family_key
-WHERE vr.lifetime_units_sold > 0
+  ON vm.product_family_key = fn.product_family_key
+LEFT JOIN canonical_variant_names AS cvn
+  ON vm.product_family_key = cvn.product_family_key
+ AND vm.sku = cvn.sku
+WHERE vm.lifetime_units_sold > 0
 ORDER BY
-  vr.product_family_key,
-  vr.units_last_3m DESC,
-  vr.revenue_last_3m DESC,
-  vr.lifetime_units_sold DESC,
-  vr.sku;
+  vm.product_family_key,
+  vm.units_last_3m DESC,
+  vm.revenue_last_3m DESC,
+  vm.lifetime_units_sold DESC,
+  vm.sku;
