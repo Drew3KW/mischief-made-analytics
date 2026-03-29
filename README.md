@@ -53,8 +53,15 @@ This project serves two purposes:
 - `anl_product_revenue_monthly_by_family_trusted_dates`
 - `anl_product_family_recent_trends_trusted`
 
+### Customer-level behavior
+- `anl_customer_order_behavior`
+
 ### Supporting analysis / review queries
 - `product_family_recent_trends_review.sql`
+- `customer_order_behavior_review.sql`
+
+### Supporting validation
+- `customer_order_behavior_validation.sql`
 
 ## Key modeling lessons so far
 
@@ -67,6 +74,8 @@ This project serves two purposes:
 - Historical product family analysis requires careful normalization of SKU and product name logic
 - Business-facing family rollups depend on choosing one canonical family name per family key
 - Trusted historical trend analysis requires filtering out suspect order-timing records
+- Customer behavior modeling should be built from the order fact as the source of truth
+- Customer descriptive attributes may be imperfect, but customer email remains the trusted analytical key
 
 ## Major project milestones so far
 
@@ -85,23 +94,36 @@ These were addressed by:
 - building trusted monthly family revenue outputs
 - adding recent-trend analysis at product family grain
 
+### Customer order behavior
+Analysis Pack v1 has now expanded into customer-level behavior modeling. A new customer-grain analysis view was added to support:
+- repeat vs one-time customer analysis
+- average order value analysis
+- top-customer identification
+- cancellation behavior review
+- refund behavior review
+
+This work established a reusable customer behavior layer built from `fct_orders`, with completed-order metrics defined off non-cancelled orders and customer email used as the practical business key.
+
 ## Current focus
 
-Current work is centered on Analysis Pack v1, especially product-family-level analysis:
+Current work is centered on Analysis Pack v1, which now includes both product-family and customer-order behavior analysis:
 - family-level product performance
 - trusted monthly product-family revenue trends
 - recent family trend classification
-- review queries for rising, declining, and new/returning families
-- drill-down into variant-level drivers for important product families
+- repeat vs one-time customer analysis
+- customer average order value
+- customer cancellation and refund behavior
+- review queries for business-facing analysis
 
 ## Future roadmap
 
 - generate real business insights for Mischief Made from the warehouse
 - expand analysis into:
-  - average order value
-  - repeat vs one-time customers
-  - refund / cancellation patterns
+  - customer recency
+  - cohort analysis
+  - simple RFM-style segmentation
   - product mix and assortment analysis
+  - dashboard-ready KPI layers
 - BI dashboarding
 - additional source integration:
   - Etsy
