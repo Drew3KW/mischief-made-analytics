@@ -1,4 +1,4 @@
--- sql/analysis/product_revenue_monthly_by_family_trusted_dates.sql
+-- sql/analysis/product_revenue_monthly_by_family.sql
 -- Purpose:
 -- Monthly product family revenue trends using only trusted order dates.
 --
