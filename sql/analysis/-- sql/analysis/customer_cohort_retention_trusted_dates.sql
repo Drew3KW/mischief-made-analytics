@@ -1,4 +1,4 @@
--- sql/analysis/customer_cohort_retention_trusted_dates.sql
+-- sql/analysis/customer_cohort_retention.sql
 -- Purpose:
 -- Customer cohort retention view for Analysis Pack v1.
 --
@@ -11,7 +11,7 @@
 -- - Includes only non-cancelled orders
 -- - Cohorts are based on first completed-order month
 
-CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_customer_cohort_retention_trusted_dates` AS
+CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_customer_cohort_retention` AS
 
 WITH completed_orders AS (
     SELECT
