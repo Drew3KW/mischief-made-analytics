@@ -1,0 +1,113 @@
+# Milestone 15 - Shared Product Family Models
+
+## Objective
+
+Promote product-family assignment logic into shared reusable marts models.
+
+This phase creates:
+- `marts.product_family_map`
+- `marts.dim_product_families`
+
+The goal is to stop repeating complex family-derivation logic across multiple downstream analysis views and instead establish a reusable source of truth for product-family assignment.
+
+---
+
+## Why this work was done now
+
+Product-family logic began as downstream analysis logic, but it has now become a recurring semantic dependency across the project.
+
+By this point in the project, product-family logic is already central to:
+- product-family performance analysis
+- monthly family revenue trends
+- recent family trend classification
+- planned customer x product-family mix analysis
+
+Because the same family assignment and canonical naming logic was being repeated in multiple places, this became a good moment to move that logic upstream into shared modeled objects.
+
+---
+
+## Deliverables
+
+### Shared marts models
+- `sql/marts/product_family_map.sql`
+- `sql/marts/dim_product_families.sql`
+
+### Validation
+- `sql/validation/product_family_models_validation.sql`
+
+---
+
+## Model design
+
+### `marts.product_family_map`
+**Grain:** one row per `product_key`
+
+Purpose:
+- maps each product to a derived `product_family_key`
+- stores family assignment method
+- stores cleaned and canonical family names for reuse downstream
+
+Why it exists:
+- `fct_order_items` correctly stores `product_key`, not `product_family_key`
+- family assignment is business logic derived from historical product normalization
+- downstream models need a reusable lookup from product to family
+
+### `marts.dim_product_families`
+**Grain:** one row per `product_family_key`
+
+Purpose:
+- stores the family once at family grain
+- exposes canonical family name and lightweight family metadata
+- supports downstream family-level analysis without repeating family rollup logic
+
+---
+
+## Key modeling choices
+
+### Keep `fct_order_items` at item grain
+`fct_order_items` continues to store `product_key` as the correct foreign key at order-item grain.
+
+`product_family_key` was not added to the fact table because it is derived semantic logic rather than a base fact-table identifier.
+
+### Centralize family assignment logic
+The project’s family-key derivation rules remain based on:
+- SKU-derived family keys when SKU is specific enough
+- normalized product-name family keys when SKU is missing or too generic
+- fallbacks that avoid over-grouping generic items like stickers, greeting cards, pins, and similar categories
+
+### Centralize canonical naming
+Canonical family naming is now maintained in shared family models instead of being recomputed in every downstream analysis view.
+
+---
+
+## Why this matters
+
+This change improves the warehouse in several ways:
+
+- reduces repeated regex and naming logic in downstream views
+- creates a reusable semantic family layer
+- makes future analysis models easier to write and maintain
+- makes family-definition changes easier to manage in one place
+- better separates core reusable business logic from one-off analysis logic
+
+This is especially important because product-family analysis has become a major axis of the project.
+
+---
+
+## Validation performed
+
+- validated one row per `product_key` in `product_family_map`
+- validated one row per `product_family_key` in `dim_product_families`
+- tied out row count in `product_family_map` to `dim_products_historical`
+- confirmed all dimension family keys exist in the map
+
+---
+
+## Outcome
+
+The warehouse now has a reusable shared product-family layer.
+
+This lays the groundwork for cleaner downstream models, especially:
+- refactoring existing family-level analysis views
+- building customer x product-family mix analysis
+- future dashboard-ready product-family summary layers
