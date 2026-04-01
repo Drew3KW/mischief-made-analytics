@@ -53,15 +53,21 @@ This project serves two purposes:
 - `anl_product_revenue_monthly_by_family_trusted_dates`
 - `anl_product_family_recent_trends_trusted`
 
-### Customer-level behavior
+### Customer-level analysis
 - `anl_customer_order_behavior`
+- `anl_customer_recency_segments`
+- `anl_customer_cohort_retention_trusted_dates`
 
 ### Supporting analysis / review queries
 - `product_family_recent_trends_review.sql`
 - `customer_order_behavior_review.sql`
+- `customer_recency_segments_review.sql`
+- `customer_cohort_retention_trusted_dates_review.sql`
 
 ### Supporting validation
 - `customer_order_behavior_validation.sql`
+- `customer_recency_segments_validation.sql`
+- `customer_cohort_retention_trusted_dates_validation.sql`
 
 ## Key modeling lessons so far
 
@@ -76,6 +82,7 @@ This project serves two purposes:
 - Trusted historical trend analysis requires filtering out suspect order-timing records
 - Customer behavior modeling should be built from the order fact as the source of truth
 - Customer descriptive attributes may be imperfect, but customer email remains the trusted analytical key
+- Cohort analysis is especially sensitive to date quality, so trusted-date filtering matters at cohort assignment time, not just in downstream trend reporting
 
 ## Major project milestones so far
 
@@ -95,35 +102,44 @@ These were addressed by:
 - adding recent-trend analysis at product family grain
 
 ### Customer order behavior
-Analysis Pack v1 has now expanded into customer-level behavior modeling. A new customer-grain analysis view was added to support:
+Analysis Pack v1 expanded into customer-level behavior modeling with a reusable customer-grain analysis view supporting:
 - repeat vs one-time customer analysis
 - average order value analysis
 - top-customer identification
 - cancellation behavior review
 - refund behavior review
 
-This work established a reusable customer behavior layer built from `fct_orders`, with completed-order metrics defined off non-cancelled orders and customer email used as the practical business key.
+This work established a customer behavior layer built from `fct_orders`, with completed-order metrics based on non-cancelled orders and customer email used as the practical business key.
+
+### Customer lifecycle and retention
+Analysis Pack v1 now also includes:
+- customer recency segmentation
+- trusted-dates customer cohort retention
+
+This extends the project from static customer summaries into lifecycle and retention analysis, helping answer:
+- which customers are active, warming, cooling, or lapsed
+- whether customer cohorts return over time
+- how quickly cohorts decay after acquisition
+- how much revenue cohorts generate across later lifecycle months
 
 ## Current focus
 
-Current work is centered on Analysis Pack v1, which now includes both product-family and customer-order behavior analysis:
+Current work is centered on Analysis Pack v1, which now includes both product-family and customer analysis:
 - family-level product performance
 - trusted monthly product-family revenue trends
 - recent family trend classification
-- repeat vs one-time customer analysis
-- customer average order value
-- customer cancellation and refund behavior
-- review queries for business-facing analysis
+- customer order behavior
+- customer recency segmentation
+- trusted-dates customer cohort retention
+- review and validation queries for business-facing analysis
 
 ## Future roadmap
 
 - generate real business insights for Mischief Made from the warehouse
 - expand analysis into:
-  - customer recency
-  - cohort analysis
+  - customer x product-family mix analysis
   - simple RFM-style segmentation
-  - product mix and assortment analysis
-  - dashboard-ready KPI layers
+  - dashboard-ready KPI and summary layers
 - BI dashboarding
 - additional source integration:
   - Etsy
