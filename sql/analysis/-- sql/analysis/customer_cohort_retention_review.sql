@@ -1,4 +1,4 @@
--- sql/analysis/customer_cohort_retention_trusted_dates_review.sql
+-- sql/analysis/customer_cohort_retention_review.sql
 -- Purpose:
 -- Business-facing review queries for customer cohort retention.
 
@@ -11,7 +11,7 @@ SELECT
     retention_rate,
     period_orders,
     period_revenue
-FROM `mischief-made-analytics.marts.anl_customer_cohort_retention_trusted_dates`
+FROM `mischief-made-analytics.marts.anl_customer_cohort_retention`
 ORDER BY cohort_month, months_since_first_order;
 
 
@@ -23,7 +23,7 @@ SELECT
     retention_rate,
     period_orders,
     period_revenue
-FROM `mischief-made-analytics.marts.anl_customer_cohort_retention_trusted_dates`
+FROM `mischief-made-analytics.marts.anl_customer_cohort_retention`
 WHERE months_since_first_order = 0
 ORDER BY cohort_month;
 
@@ -35,7 +35,7 @@ SELECT
     customers_ordering_in_period,
     retention_rate,
     period_revenue
-FROM `mischief-made-analytics.marts.anl_customer_cohort_retention_trusted_dates`
+FROM `mischief-made-analytics.marts.anl_customer_cohort_retention`
 WHERE months_since_first_order = 1
 ORDER BY cohort_month;
 
@@ -46,6 +46,6 @@ SELECT
     ROUND(AVG(retention_rate), 4) AS avg_retention_rate,
     SUM(customers_ordering_in_period) AS customers_ordering,
     ROUND(SUM(period_revenue), 2) AS total_revenue
-FROM `mischief-made-analytics.marts.anl_customer_cohort_retention_trusted_dates`
+FROM `mischief-made-analytics.marts.anl_customer_cohort_retention`
 GROUP BY months_since_first_order
 ORDER BY months_since_first_order;
