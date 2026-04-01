@@ -52,24 +52,24 @@ This project serves two purposes:
 
 ### Family-level performance and trends
 - `anl_product_performance_by_family`
-- `anl_product_revenue_monthly_by_family_trusted_dates`
-- `anl_product_family_recent_trends_trusted`
+- `anl_product_revenue_monthly_by_family`
+- `anl_product_family_recent_trends`
 
 ### Customer-level analysis
 - `anl_customer_order_behavior`
 - `anl_customer_recency_segments`
-- `anl_customer_cohort_retention_trusted_dates`
+- `anl_customer_cohort_retention`
 
 ### Supporting analysis / review queries
 - `product_family_recent_trends_review.sql`
 - `customer_order_behavior_review.sql`
 - `customer_recency_segments_review.sql`
-- `customer_cohort_retention_trusted_dates_review.sql`
+- `customer_cohort_retention_review.sql`
 
 ### Supporting validation
 - `customer_order_behavior_validation.sql`
 - `customer_recency_segments_validation.sql`
-- `customer_cohort_retention_trusted_dates_validation.sql`
+- `customer_cohort_retention_validation.sql`
 
 ## Key modeling lessons so far
 
