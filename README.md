@@ -42,6 +42,8 @@ This project serves two purposes:
 ### Marts
 - `dim_products`
 - `dim_products_historical`
+- `dim_product_families`
+- `product_family_map`
 - `dim_customers`
 - `fct_order_items`
 - `fct_orders`
@@ -83,6 +85,7 @@ This project serves two purposes:
 - Customer behavior modeling should be built from the order fact as the source of truth
 - Customer descriptive attributes may be imperfect, but customer email remains the trusted analytical key
 - Cohort analysis is especially sensitive to date quality, so trusted-date filtering matters at cohort assignment time, not just in downstream trend reporting
+- When business logic becomes reused across multiple analysis models, it should be promoted into shared warehouse models rather than repeated downstream
 
 ## Major project milestones so far
 
@@ -126,6 +129,7 @@ This extends the project from static customer summaries into lifecycle and reten
 
 Current work is centered on Analysis Pack v1, which now includes both product-family and customer analysis:
 - family-level product performance
+- shared product-family modeling for reusable downstream family analysis
 - trusted monthly product-family revenue trends
 - recent family trend classification
 - customer order behavior
