@@ -1,4 +1,4 @@
--- sql/analysis/product_family_recent_trends_trusted.sql
+-- sql/analysis/product_family_recent_trends.sql
 -- Purpose:
 -- Recent trusted trend analysis for product families using trusted monthly revenue.
 -- Grain: one row per product_family_key.
@@ -8,12 +8,12 @@
 -- - Includes longer-term context via lifetime_months_with_sales
 -- - Uses cleaned product_family_name from the trusted monthly family layer
 
-CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_product_family_recent_trends_trusted` AS
+CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_product_family_recent_trends` AS
 
 WITH max_month AS (
   SELECT
     MAX(order_month) AS latest_month
-  FROM `mischief-made-analytics.marts.anl_product_revenue_monthly_by_family_trusted_dates`
+  FROM `mischief-made-analytics.marts.anl_product_revenue_monthly_by_family`
 ),
 
 windowed AS (
@@ -28,7 +28,7 @@ windowed AS (
     m.latest_month AS current_3m_end,
     DATE_SUB(m.latest_month, INTERVAL 5 MONTH) AS prior_3m_start,
     DATE_SUB(m.latest_month, INTERVAL 3 MONTH) AS prior_3m_end
-  FROM `mischief-made-analytics.marts.anl_product_revenue_monthly_by_family_trusted_dates` AS t
+  FROM `mischief-made-analytics.marts.anl_product_revenue_monthly_by_family` AS t
   CROSS JOIN max_month AS m
 ),
 
