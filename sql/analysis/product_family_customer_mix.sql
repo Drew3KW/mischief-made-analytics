@@ -10,6 +10,7 @@
 -- - Uses shared family models from marts.product_family_map and marts.dim_product_families
 -- - Excludes cancelled / voided orders
 -- - Excludes suspect historical timing rows
+-- - Excludes non-core accessory / promo families that are not useful for this analysis
 -- - Connects product-family analysis with customer behavior analysis
 
 CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_product_family_customer_mix` AS
@@ -53,6 +54,12 @@ joined AS (
     LEFT JOIN `mischief-made-analytics.marts.dim_product_families` AS dpf
         ON pfm.product_family_key = dpf.product_family_key
     WHERE pfm.product_family_key IS NOT NULL
+      AND dpf.product_family_name IS NOT NULL
+      AND TRIM(dpf.product_family_name) <> ''
+      AND NOT REGEXP_CONTAINS(
+          LOWER(dpf.product_family_name),
+          r'(mystery box|sticker|decal|keychain|greeting card|card|pin|patch|magnet)'
+      )
 ),
 
 family_rollup AS (
