@@ -56,10 +56,10 @@ joined AS (
     WHERE pfm.product_family_key IS NOT NULL
       AND dpf.product_family_name IS NOT NULL
       AND TRIM(dpf.product_family_name) <> ''
-      AND NOT REGEXP_CONTAINS(
-          LOWER(dpf.product_family_name),
-          r'(mystery box|sticker|decal|keychain|greeting card|card|pin|patch|magnet)'
-      )
+    AND NOT REGEXP_CONTAINS(
+      LOWER(dpf.product_family_name),
+      r'\b(mystery boxes?|stickers?|decals?|keychains?|greeting[ -]?cards?|pins?|patches?|magnets?)\b'
+    )
 ),
 
 family_rollup AS (
