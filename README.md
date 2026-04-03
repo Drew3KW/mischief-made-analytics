@@ -59,8 +59,9 @@ This project serves two purposes:
 - `anl_customer_order_behavior`
 - `anl_customer_recency_segments`
 - `anl_customer_cohort_retention`
+- `anl_customer_rfm_segments`
 
-### Product-family x customer analysis
+### Customer x product-family analysis
 - `anl_product_family_customer_mix`
 
 ### Supporting analysis / review queries
@@ -69,13 +70,14 @@ This project serves two purposes:
 - `customer_recency_segments_review.sql`
 - `customer_cohort_retention_review.sql`
 - `product_family_customer_mix_review.sql`
+- `customer_rfm_segments_review.sql`
 
 ### Supporting validation
 - `customer_order_behavior_validation.sql`
 - `customer_recency_segments_validation.sql`
 - `customer_cohort_retention_validation.sql`
-- `product_family_models_validation.sql`
 - `product_family_customer_mix_validation.sql`
+- `customer_rfm_segments_validation.sql`
 
 ## Key modeling lessons so far
 
@@ -128,46 +130,50 @@ Analysis Pack v1 expanded into customer-level behavior modeling with a reusable 
 
 This work established a customer behavior layer built from `fct_orders`, with completed-order metrics based on non-cancelled orders and customer email used as the practical business key.
 
-### Customer lifecycle and retention
+### Customer lifecycle, retention, and segmentation
+
 Analysis Pack v1 now also includes:
 - customer recency segmentation
-- customer cohort retention using trusted dates by default
+- customer cohort retention
+- customer RFM-style segmentation
 
-This extends the project from static customer summaries into lifecycle and retention analysis, helping answer:
+This extends the project from static customer summaries into lifecycle, retention, and segmentation analysis, helping answer:
 - which customers are active, warming, cooling, or lapsed
 - whether customer cohorts return over time
 - how quickly cohorts decay after acquisition
 - how much revenue cohorts generate across later lifecycle months
+- which customers are loyal, high-value, recent one-time buyers, or win-back candidates
 
-### Product-family customer mix
-Analysis Pack v1 now also connects product-family analysis with customer behavior analysis through:
-- unique customers by family
-- repeat vs one-time customer mix by family
-- first-purchase family patterns
-- average customer lifetime value for buyers of each family
+### Product-family customer behavior
 
-This adds a more integrated merchandising and customer-behavior lens to the warehouse.
+Analysis Pack v1 also includes:
+- product-family customer mix analysis
+
+This connects product-family performance to customer behavior, helping answer:
+- which families attract more repeat customers
+- which families appear more often in first orders
+- which families are associated with higher-value customers
+- which families look more acquisition-oriented versus loyalty-oriented
 
 ## Current focus
 
-Current work is centered on Analysis Pack v1, which now includes:
+Current work is centered on Analysis Pack v1, which now includes both product-family and customer analysis:
 - family-level product performance
 - shared product-family modeling for reusable downstream family analysis
-- monthly product-family revenue trends using trusted dates by default
+- monthly product-family revenue trends
 - recent family trend classification
 - customer order behavior
 - customer recency segmentation
 - customer cohort retention
 - product-family customer mix analysis
+- customer RFM-style segmentation
 - review and validation queries for business-facing analysis
 
 ## Future roadmap
 
 - generate real business insights for Mischief Made from the warehouse
 - expand analysis into:
-  - simple RFM-style segmentation
   - dashboard-ready KPI and summary layers
-- implement ingestion / refresh workflow
 - BI dashboarding
 - additional source integration:
   - Etsy
