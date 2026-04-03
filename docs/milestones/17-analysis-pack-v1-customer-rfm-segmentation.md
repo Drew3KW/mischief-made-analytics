@@ -1,0 +1,223 @@
+# Milestone 17 - Analysis Pack v1 Customer RFM Segmentation
+
+## Objective
+Add a business-facing RFM-style customer segmentation layer to Analysis Pack v1.
+
+This phase creates a reusable one-row-per-customer analysis view that combines:
+- recency
+- frequency
+- monetary value
+
+into a simple customer segmentation model for retention, win-back, and customer-value analysis.
+
+---
+
+## Why this work was done now
+By this point in the project, the warehouse already supported:
+- reusable customer order behavior analysis
+- recency segmentation
+- customer cohort retention
+- product-family customer mix analysis
+- shared product-family semantic models for reusable downstream logic
+
+The next logical step was to extend the customer analysis layer from descriptive behavior into actionable customer segmentation.
+
+This milestone creates a practical business-facing customer segmentation model that helps answer questions such as:
+- which customers are the most loyal and valuable?
+- which recent first-time buyers should be targeted for a second purchase?
+- which formerly strong customers have lapsed?
+- how is customer value distributed across lifecycle stages?
+
+---
+
+## Deliverables
+
+### Analysis view
+- `sql/analysis/customer_rfm_segments.sql`
+
+### Review queries
+- `sql/analysis/customer_rfm_segments_review.sql`
+
+### Validation
+- `sql/validation/customer_rfm_segments_validation.sql`
+
+---
+
+## Model design
+
+### Grain
+One row per customer.
+
+### Source of truth
+The model is built from:
+- `marts.anl_customer_order_behavior`
+- `marts.anl_customer_recency_segments`
+
+### Key outputs
+The model includes:
+- `customer_key`
+- `customer_email`
+- `most_recent_order_date`
+- `days_since_last_order`
+- `lifetime_orders`
+- `lifetime_revenue`
+- `avg_order_value`
+- `recency_segment`
+- `frequency_segment`
+- `monetary_segment`
+- `recency_score`
+- `frequency_score`
+- `monetary_score`
+- `rfm_code`
+- `rfm_segment`
+
+---
+
+## Important modeling choices
+
+### Reuse customer-grain analysis upstream
+This view is intentionally built on top of:
+- `anl_customer_order_behavior`
+- `anl_customer_recency_segments`
+
+rather than recalculating all customer behavior directly from `fct_orders`.
+
+This keeps reusable customer logic centralized and aligned across the analysis layer.
+
+### Reuse recency logic rather than duplicate it
+Recency segmentation already exists in the warehouse, so this milestone reuses that logic instead of redefining customer recency rules in a second downstream model.
+
+That keeps customer lifecycle definitions consistent across:
+- recency analysis
+- cohort analysis
+- RFM segmentation
+
+### Use simple fixed thresholds for business readability
+This model uses fixed thresholds rather than percentile-based scoring.
+
+That choice makes the output:
+- easier to explain to business users
+- easier to validate
+- more stable over time
+- more practical for a real small-business decision-support workflow
+
+### Trusted dates are now the default standard
+Business-facing analysis now uses trusted dates by default.
+
+That means trusted-date logic is no longer expressed through `_trusted_dates` suffixes in downstream model names. The naming now assumes trusted dates unless explicitly stated otherwise.
+
+### Keep trusted customer keys and order metrics aligned with prior work
+The model continues the project’s current analytical standards:
+- `customer_email` is the practical customer key
+- completed-order customer metrics come from the existing customer behavior layer
+- business-facing segmentation should remain readable and interpretable
+
+---
+
+## Segment logic
+
+### Recency
+Reused from `anl_customer_recency_segments`:
+- `active_recent`
+- `warm`
+- `cooling_off`
+- `lapsed`
+
+### Frequency
+Derived from lifetime completed-order count:
+- `one_time` = 1 order
+- `occasional_repeat` = 2 orders
+- `repeat` = 3 to 4 orders
+- `loyal` = 5+ orders
+
+### Monetary
+Derived from lifetime revenue:
+- `high_value` = lifetime revenue >= 500
+- `mid_value` = lifetime revenue >= 150 and < 500
+- `low_value` = lifetime revenue < 150
+
+### Overall RFM-style segment labels
+Examples include:
+- `loyal_high_value`
+- `active_high_value_repeat`
+- `active_mid_value_repeat`
+- `active_low_value_repeat`
+- `recent_one_time`
+- `warm_repeat`
+- `warm_high_value_repeat`
+- `cooling_repeat`
+- `cooling_high_value`
+- `lapsed_high_value`
+- `lapsed_repeat`
+- `lapsed_one_time`
+
+---
+
+## Validation performed
+
+### Structural checks
+- validated one row per `customer_key`
+- tied total row count to `anl_customer_order_behavior`
+
+### Metric tieouts
+- tied total `lifetime_revenue` to `anl_customer_order_behavior`
+- tied recency fields back to `anl_customer_recency_segments`
+
+### Coverage checks
+- validated no unexpected nulls in core segment fields
+- reviewed segment coverage including `no_completed_orders`
+
+### Review checks
+- reviewed customer counts and revenue by `rfm_segment`
+- reviewed recency x frequency x monetary combinations
+- reviewed top `loyal_high_value` customers
+- reviewed `lapsed_high_value` customers for win-back targeting
+- reviewed `recent_one_time` customers for second-purchase targeting
+
+---
+
+## Outcome
+This phase adds a practical customer segmentation layer to Analysis Pack v1.
+
+It is valuable for the business because it supports:
+- retention targeting
+- second-purchase conversion analysis
+- win-back opportunity identification
+- VIP / loyal-customer identification
+
+It is valuable for the portfolio project because it demonstrates:
+- layered analysis design
+- reuse of upstream semantic customer logic
+- business-oriented segmentation modeling
+- validation of customer-grain analysis outputs
+
+---
+
+## Relationship to prior work
+This milestone builds directly on:
+- the Shopify warehouse foundation
+- customer order behavior modeling
+- customer recency segmentation
+- customer cohort retention
+- product-family customer mix analysis
+
+Together, these layers now support analysis of:
+- how customers have behaved historically
+- how recently they have engaged
+- whether cohorts return over time
+- which product families attract different customer types
+- which customers are most valuable, loyal, or at risk of lapse
+
+---
+
+## Current status
+Completed:
+- RFM-style customer segmentation view
+- business-facing review queries for customer segmentation
+- validation queries for customer RFM analysis
+
+Likely next steps:
+- dashboard-ready KPI and summary layers
+- BI/dashboarding
+- ingestion / refresh workflow
+- additional source integration
