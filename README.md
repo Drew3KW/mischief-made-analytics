@@ -42,8 +42,8 @@ This project serves two purposes:
 ### Marts
 - `dim_products`
 - `dim_products_historical`
-- `dim_product_families`
 - `product_family_map`
+- `dim_product_families`
 - `dim_customers`
 - `fct_order_items`
 - `fct_orders`
@@ -60,16 +60,22 @@ This project serves two purposes:
 - `anl_customer_recency_segments`
 - `anl_customer_cohort_retention`
 
+### Product-family x customer analysis
+- `anl_product_family_customer_mix`
+
 ### Supporting analysis / review queries
 - `product_family_recent_trends_review.sql`
 - `customer_order_behavior_review.sql`
 - `customer_recency_segments_review.sql`
 - `customer_cohort_retention_review.sql`
+- `product_family_customer_mix_review.sql`
 
 ### Supporting validation
 - `customer_order_behavior_validation.sql`
 - `customer_recency_segments_validation.sql`
 - `customer_cohort_retention_validation.sql`
+- `product_family_models_validation.sql`
+- `product_family_customer_mix_validation.sql`
 
 ## Key modeling lessons so far
 
@@ -86,6 +92,7 @@ This project serves two purposes:
 - Customer descriptive attributes may be imperfect, but customer email remains the trusted analytical key
 - Cohort analysis is especially sensitive to date quality, so trusted-date filtering matters at cohort assignment time, not just in downstream trend reporting
 - When business logic becomes reused across multiple analysis models, it should be promoted into shared warehouse models rather than repeated downstream
+- Shared semantic models make downstream analysis views shorter, more maintainable, and easier to extend
 
 ## Major project milestones so far
 
@@ -101,8 +108,15 @@ Analysis Pack v1 work uncovered additional historical naming issues, including:
 These were addressed by:
 - refining family-key logic
 - improving canonical family naming
-- building trusted monthly family revenue outputs
+- building monthly family revenue outputs using trusted dates
 - adding recent-trend analysis at product family grain
+
+### Shared product-family models
+As product-family logic became a repeated semantic dependency across the project, it was promoted into shared marts models:
+- `product_family_map`
+- `dim_product_families`
+
+This centralized product-family assignment and canonical naming, reduced repeated downstream regex logic, and created a reusable family layer for future analysis.
 
 ### Customer order behavior
 Analysis Pack v1 expanded into customer-level behavior modeling with a reusable customer-grain analysis view supporting:
@@ -117,7 +131,7 @@ This work established a customer behavior layer built from `fct_orders`, with co
 ### Customer lifecycle and retention
 Analysis Pack v1 now also includes:
 - customer recency segmentation
-- trusted-dates customer cohort retention
+- customer cohort retention using trusted dates by default
 
 This extends the project from static customer summaries into lifecycle and retention analysis, helping answer:
 - which customers are active, warming, cooling, or lapsed
@@ -125,25 +139,35 @@ This extends the project from static customer summaries into lifecycle and reten
 - how quickly cohorts decay after acquisition
 - how much revenue cohorts generate across later lifecycle months
 
+### Product-family customer mix
+Analysis Pack v1 now also connects product-family analysis with customer behavior analysis through:
+- unique customers by family
+- repeat vs one-time customer mix by family
+- first-purchase family patterns
+- average customer lifetime value for buyers of each family
+
+This adds a more integrated merchandising and customer-behavior lens to the warehouse.
+
 ## Current focus
 
-Current work is centered on Analysis Pack v1, which now includes both product-family and customer analysis:
+Current work is centered on Analysis Pack v1, which now includes:
 - family-level product performance
 - shared product-family modeling for reusable downstream family analysis
-- trusted monthly product-family revenue trends
+- monthly product-family revenue trends using trusted dates by default
 - recent family trend classification
 - customer order behavior
 - customer recency segmentation
-- trusted-dates customer cohort retention
+- customer cohort retention
+- product-family customer mix analysis
 - review and validation queries for business-facing analysis
 
 ## Future roadmap
 
 - generate real business insights for Mischief Made from the warehouse
 - expand analysis into:
-  - customer x product-family mix analysis
   - simple RFM-style segmentation
   - dashboard-ready KPI and summary layers
+- implement ingestion / refresh workflow
 - BI dashboarding
 - additional source integration:
   - Etsy
