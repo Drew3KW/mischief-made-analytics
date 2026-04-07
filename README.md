@@ -170,37 +170,49 @@ This layer consolidates core daily business metrics including:
 
 This creates a cleaner semantic bridge between detailed warehouse models and future dashboards.
 
+### Monthly business summary layer
+
+The summary layer was extended with `anl_monthly_business_summary`, a one-row-per-month rollup built on top of `anl_daily_kpi_summary`.
+
+This layer consolidates monthly business performance into a cleaner reporting view including:
+- submitted, completed, and cancelled orders
+- customer totals and new vs returning customer mix
+- units sold
+- gross revenue, refunded amount, and net revenue after refunds
+- blended monthly KPIs such as average order value and average units per order
+- month-over-month changes in revenue, orders, and customers
+
+This makes the warehouse more useful for business-owner reporting and provides a stronger monthly semantic layer for future dashboards.
 
 ## Current focus
 
 Current work is centered on Analysis Pack v1, which now includes both product-family and customer analysis plus the beginning of a dashboard-ready summary layer:
-
-* family-level product performance
-* shared product-family modeling for reusable downstream family analysis
-* monthly product-family revenue trends
-* recent family trend classification
-* customer order behavior
-* customer recency segmentation
-* customer cohort retention
-* product-family customer mix analysis
-* customer RFM-style segmentation
-* daily KPI summary
-* review and validation queries for business-facing analysis
+- family-level product performance
+- shared product-family modeling for reusable downstream family analysis
+- monthly product-family revenue trends
+- recent family trend classification
+- customer order behavior
+- customer recency segmentation
+- customer cohort retention
+- product-family customer mix analysis
+- customer RFM-style segmentation
+- daily KPI summary
+- monthly business summary
+- review and validation queries for business-facing analysis
 
 ## Future roadmap
 
-* generate real business insights for Mischief Made from the warehouse
-* expand the summary layer into:
-  * monthly business summary
-  * customer summary
-  * family summary
-* BI dashboarding
-* ingestion / refresh scheduling
-* additional source integration:
-  * Etsy
-  * Faire
-  * Etsy Ads
-  * Pinterest Ads
-* cross-channel revenue and marketing analysis
-* eventual migration to dbt + Snowflake
+- generate real business insights for Mischief Made from the warehouse
+- expand the summary layer into:
+  - customer summary
+  - family summary
+- BI dashboarding
+- ingestion / refresh scheduling
+- additional source integration:
+  - Etsy
+  - Faire
+  - Etsy Ads
+  - Pinterest Ads
+- cross-channel revenue and marketing analysis
+- eventual migration to dbt + Snowflake
 
