@@ -7,15 +7,14 @@
 --
 -- Notes:
 -- - Uses trusted dates by default
--- - Builds monthly family metrics directly from trusted fct_orders + fct_order_items
+-- - Uses all trusted completed order lines for revenue / orders / units
+-- - Uses only email-qualified trusted lines for customer count metrics
 -- - Reuses all-time family customer mix context from marts.anl_product_family_customer_mix
--- - Computes monthly distinct family customer counts directly from trusted orders
 -- - Filters to core families via shared upstream family metadata
--- - Adds BI-friendly share-of-business and MoM trend fields
 
 CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_family_summary` AS
 
-WITH trusted_family_lines AS (
+WITH trusted_family_lines_all AS (
     SELECT
         DATE_TRUNC(DATE(o.created_at_ts), MONTH) AS reporting_month,
         o.order_number,
@@ -33,8 +32,6 @@ WITH trusted_family_lines AS (
     LEFT JOIN `mischief-made-analytics.marts.dim_product_families` AS dpf
         ON pfm.product_family_key = dpf.product_family_key
     WHERE o.created_at_ts IS NOT NULL
-      AND o.customer_email IS NOT NULL
-      AND TRIM(o.customer_email) <> ''
       AND o.cancelled_at_ts IS NULL
       AND LOWER(COALESCE(o.financial_status, '')) NOT IN ('voided', 'cancelled')
       AND o.is_suspect_historical_timing = FALSE
@@ -53,11 +50,22 @@ monthly_family_base AS (
         SUM(quantity) AS units_sold,
         ROUND(SUM(gross_item_revenue), 2) AS gross_family_revenue,
         ROUND(SUM(net_item_revenue_before_refunds), 2) AS net_family_revenue_before_refunds
-    FROM trusted_family_lines
+    FROM trusted_family_lines_all
     GROUP BY
         reporting_month,
         product_family_key,
         product_family_name
+),
+
+trusted_family_lines_customers AS (
+    SELECT
+        reporting_month,
+        order_number,
+        customer_email,
+        product_family_key
+    FROM trusted_family_lines_all
+    WHERE customer_email IS NOT NULL
+      AND TRIM(customer_email) <> ''
 ),
 
 customer_first_order AS (
@@ -76,23 +84,21 @@ customer_first_order AS (
 
 monthly_family_customer_counts AS (
     SELECT
-        tfl.reporting_month,
-        tfl.product_family_key,
-        COUNT(DISTINCT tfl.customer_email) AS customers_with_family_orders,
+        tflc.reporting_month,
+        tflc.product_family_key,
+        COUNT(DISTINCT tflc.customer_email) AS customers_with_family_orders,
         COUNT(DISTINCT CASE
-            WHEN cfo.first_order_month = tfl.reporting_month
-            THEN tfl.customer_email
+            WHEN cfo.first_order_month = tflc.reporting_month THEN tflc.customer_email
         END) AS new_customers,
         COUNT(DISTINCT CASE
-            WHEN cfo.first_order_month < tfl.reporting_month
-            THEN tfl.customer_email
+            WHEN cfo.first_order_month < tflc.reporting_month THEN tflc.customer_email
         END) AS returning_customers
-    FROM trusted_family_lines AS tfl
+    FROM trusted_family_lines_customers AS tflc
     LEFT JOIN customer_first_order AS cfo
-        ON tfl.customer_email = cfo.customer_email
+        ON tflc.customer_email = cfo.customer_email
     GROUP BY
-        tfl.reporting_month,
-        tfl.product_family_key
+        tflc.reporting_month,
+        tflc.product_family_key
 ),
 
 family_customer_mix AS (
@@ -116,26 +122,17 @@ family_customer_mix AS (
 
 month_totals AS (
     SELECT
-        reporting_month,
-        SUM(orders_with_family) AS month_orders_with_family,
-        SUM(units_sold) AS month_units_sold,
-        ROUND(SUM(gross_family_revenue), 2) AS month_gross_family_revenue,
-        ROUND(SUM(net_family_revenue_before_refunds), 2) AS month_net_family_revenue_before_refunds,
-        SUM(customers_with_family_orders) AS month_customers_with_family_orders
-    FROM (
-        SELECT
-            mfb.reporting_month,
-            mfb.orders_with_family,
-            mfb.units_sold,
-            mfb.gross_family_revenue,
-            mfb.net_family_revenue_before_refunds,
-            COALESCE(mfcc.customers_with_family_orders, 0) AS customers_with_family_orders
-        FROM monthly_family_base AS mfb
-        LEFT JOIN monthly_family_customer_counts AS mfcc
-            ON mfb.reporting_month = mfcc.reporting_month
-           AND mfb.product_family_key = mfcc.product_family_key
-    )
-    GROUP BY reporting_month
+        mfb.reporting_month,
+        SUM(mfb.orders_with_family) AS month_orders_with_family,
+        SUM(mfb.units_sold) AS month_units_sold,
+        ROUND(SUM(mfb.gross_family_revenue), 2) AS month_gross_family_revenue,
+        ROUND(SUM(mfb.net_family_revenue_before_refunds), 2) AS month_net_family_revenue_before_refunds,
+        SUM(COALESCE(mfcc.customers_with_family_orders, 0)) AS month_customers_with_family_orders
+    FROM monthly_family_base AS mfb
+    LEFT JOIN monthly_family_customer_counts AS mfcc
+        ON mfb.reporting_month = mfcc.reporting_month
+       AND mfb.product_family_key = mfcc.product_family_key
+    GROUP BY mfb.reporting_month
 ),
 
 enriched AS (
