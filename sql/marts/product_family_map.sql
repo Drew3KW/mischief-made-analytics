@@ -218,37 +218,109 @@ family_reporting_flags AS (
         CASE
             WHEN REGEXP_CONTAINS(
                 LOWER(canonical_product_family_name),
-                r'\b(mystery boxes?|gift (cards?|certificates?)|giftbox|gift box|stickers?|decals?|keychains?|greeting[ -]?cards?|pins?|patches?|magnets?)\b'
+                r'\bmystery\s+box(es)?\b'
             ) THEN FALSE
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bgift\s+(card|cards|certificate|certificates|box|boxes)\b|\bgiftbox(es)?\b'
+            ) THEN FALSE
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\b(sticker|stickers|decal|decals|keychain|keychains|greeting[ -]?card|greeting[ -]?cards|patch|patches|magnet|magnets)\b'
+            ) THEN FALSE
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin(s)?\b'
+            )
+            AND NOT REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin\s+up\b'
+            ) THEN FALSE
+
             ELSE TRUE
         END AS is_core_family,
 
         CASE
             WHEN REGEXP_CONTAINS(
                 LOWER(canonical_product_family_name),
-                r'\b(mystery boxes?)\b'
+                r'\bmystery\s+box(es)?\b'
             ) THEN 'non_core_mystery_box'
+
             WHEN REGEXP_CONTAINS(
                 LOWER(canonical_product_family_name),
-                r'\b(gift (cards?|certificates?)|giftbox|gift box)\b'
+                r'\bgift\s+(card|cards|certificate|certificates|box|boxes)\b|\bgiftbox(es)?\b'
             ) THEN 'non_core_gift_item'
+
             WHEN REGEXP_CONTAINS(
                 LOWER(canonical_product_family_name),
-                r'\b(stickers?|decals?|keychains?|greeting[ -]?cards?|pins?|patches?|magnets?)\b'
+                r'\b(sticker|stickers|decal|decals|keychain|keychains|greeting[ -]?card|greeting[ -]?cards|patch|patches|magnet|magnets)\b'
             ) THEN 'non_core_accessory_or_promo'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin(s)?\b'
+            )
+            AND NOT REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin\s+up\b'
+            ) THEN 'non_core_accessory_or_promo'
+
             ELSE 'core_merchandise'
         END AS family_reporting_category,
 
         CASE
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(mystery boxes?)\b') THEN 'mystery_box'
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(gift (cards?|certificates?)|giftbox|gift box)\b') THEN 'gift_item'
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(stickers?)\b') THEN 'sticker'
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(decals?)\b') THEN 'decal'
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(keychains?)\b') THEN 'keychain'
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(greeting[ -]?cards?)\b') THEN 'greeting_card'
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(pins?)\b') THEN 'pin'
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(patches?)\b') THEN 'patch'
-            WHEN REGEXP_CONTAINS(LOWER(canonical_product_family_name), r'\b(magnets?)\b') THEN 'magnet'
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bmystery\s+box(es)?\b'
+            ) THEN 'mystery_box'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bgift\s+(card|cards|certificate|certificates|box|boxes)\b|\bgiftbox(es)?\b'
+            ) THEN 'gift_item'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bsticker(s)?\b'
+            ) THEN 'sticker'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bdecal(s)?\b'
+            ) THEN 'decal'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bkeychain(s)?\b'
+            ) THEN 'keychain'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bgreeting[ -]?card(s)?\b'
+            ) THEN 'greeting_card'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpatch(es)?\b'
+            ) THEN 'patch'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bmagnet(s)?\b'
+            ) THEN 'magnet'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin(s)?\b'
+            )
+            AND NOT REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin\s+up\b'
+            ) THEN 'pin'
+
             ELSE NULL
         END AS family_exclusion_reason
     FROM canonical_family_names
