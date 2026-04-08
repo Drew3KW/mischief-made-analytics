@@ -14,7 +14,7 @@
 -- - Excludes orders flagged as suspect for historical timing anomalies
 -- - Uses marts only
 
-CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_product_revenue_monthly_by_family_trusted_dates` AS
+CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_product_revenue_monthly_by_family` AS
 
 WITH line_base AS (
     SELECT
