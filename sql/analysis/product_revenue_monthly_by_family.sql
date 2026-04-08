@@ -13,6 +13,7 @@
 -- - Excludes cancelled orders
 -- - Excludes orders flagged as suspect for historical timing anomalies
 -- - Uses marts only
+-- - Filters to core families via shared upstream family metadata
 
 CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_product_revenue_monthly_by_family` AS
 
@@ -44,6 +45,9 @@ joined AS (
     LEFT JOIN `mischief-made-analytics.marts.dim_product_families` AS dpf
         ON pfm.product_family_key = dpf.product_family_key
     WHERE pfm.product_family_key IS NOT NULL
+      AND dpf.product_family_name IS NOT NULL
+      AND TRIM(dpf.product_family_name) <> ''
+      AND dpf.is_core_family = TRUE
 )
 
 SELECT
