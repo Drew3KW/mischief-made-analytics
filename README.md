@@ -61,6 +61,11 @@ This project serves two purposes:
 - `anl_customer_cohort_retention`
 - `anl_customer_rfm_segments`
 
+### Dashboard-ready summary layers
+- `anl_daily_kpi_summary`
+- `anl_monthly_business_summary`
+- `anl_customer_summary`
+
 ### Customer x product-family analysis
 - `anl_product_family_customer_mix`
 
@@ -71,6 +76,9 @@ This project serves two purposes:
 - `customer_cohort_retention_review.sql`
 - `product_family_customer_mix_review.sql`
 - `customer_rfm_segments_review.sql`
+- `daily_kpi_summary_review.sql`
+- `monthly_business_summary_review.sql`
+- `customer_summary_review.sql`
 
 ### Supporting validation
 - `customer_order_behavior_validation.sql`
@@ -78,6 +86,9 @@ This project serves two purposes:
 - `customer_cohort_retention_validation.sql`
 - `product_family_customer_mix_validation.sql`
 - `customer_rfm_segments_validation.sql`
+- `daily_kpi_summary_validation.sql`
+- `monthly_business_summary_validation.sql`
+- `customer_summary_validation.sql`
 
 ## Key modeling lessons so far
 
@@ -186,7 +197,9 @@ This makes the warehouse more useful for business-owner reporting and provides a
 
 ## Current focus
 
-Current work is centered on Analysis Pack v1, which now includes both product-family and customer analysis plus the beginning of a dashboard-ready summary layer:
+## Current focus
+
+Current work is centered on Analysis Pack v1, which now includes product-family analysis, customer analysis, and dashboard-ready summary layers:
 - family-level product performance
 - shared product-family modeling for reusable downstream family analysis
 - monthly product-family revenue trends
@@ -196,8 +209,10 @@ Current work is centered on Analysis Pack v1, which now includes both product-fa
 - customer cohort retention
 - product-family customer mix analysis
 - customer RFM-style segmentation
-- daily KPI summary
-- monthly business summary
+- dashboard-ready summary layers:
+  - daily KPI summary
+  - monthly business summary
+  - monthly customer summary
 - review and validation queries for business-facing analysis
 
 ## Future roadmap
