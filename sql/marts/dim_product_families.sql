@@ -6,13 +6,16 @@
 -- Notes:
 -- - Built from marts.product_family_map
 -- - Canonical family name is selected in product_family_map and reused here
--- - Includes lightweight descriptive metadata for downstream reporting
+-- - Includes reusable reporting metadata for core vs non-core family handling
 
 CREATE OR REPLACE TABLE `mischief-made-analytics.marts.dim_product_families` AS
 
 SELECT
     product_family_key,
     ANY_VALUE(canonical_product_family_name) AS product_family_name,
+    ANY_VALUE(is_core_family) AS is_core_family,
+    ANY_VALUE(family_reporting_category) AS family_reporting_category,
+    ANY_VALUE(family_exclusion_reason) AS family_exclusion_reason,
     COUNT(*) AS products_in_family,
     COUNT(DISTINCT source_type) AS source_types_in_family,
     COUNTIF(source_type = 'catalog') AS catalog_products_in_family,
