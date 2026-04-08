@@ -1,11 +1,14 @@
 # Mischief Made Analytics
 
-BigQuery-based analytics engineering project for Mischief Made, an apparel brand. This project is designed to be both a real business decision-support system and a flagship portfolio project for an analytics engineering / data engineering career pivot.
+BigQuery-based analytics engineering project for Mischief Made, an apparel brand.
+
+This project is designed to be both:
+1. a real business decision-support system
+2. a flagship portfolio project for an analytics engineering / data engineering career pivot
 
 ## Goals
 
 This project serves two purposes:
-
 1. Help Mischief Made make better business decisions
 2. Demonstrate real-world analytics engineering skills in a portfolio project
 
@@ -65,6 +68,7 @@ This project serves two purposes:
 - `anl_daily_kpi_summary`
 - `anl_monthly_business_summary`
 - `anl_customer_summary`
+- `anl_family_summary`
 
 ### Customer x product-family analysis
 - `anl_product_family_customer_mix`
@@ -79,6 +83,7 @@ This project serves two purposes:
 - `daily_kpi_summary_review.sql`
 - `monthly_business_summary_review.sql`
 - `customer_summary_review.sql`
+- `family_summary_review.sql`
 
 ### Supporting validation
 - `customer_order_behavior_validation.sql`
@@ -89,6 +94,7 @@ This project serves two purposes:
 - `daily_kpi_summary_validation.sql`
 - `monthly_business_summary_validation.sql`
 - `customer_summary_validation.sql`
+- `family_summary_validation.sql`
 
 ## Key modeling lessons so far
 
@@ -106,11 +112,15 @@ This project serves two purposes:
 - Cohort analysis is especially sensitive to date quality, so trusted-date filtering matters at cohort assignment time, not just in downstream trend reporting
 - When business logic becomes reused across multiple analysis models, it should be promoted into shared warehouse models rather than repeated downstream
 - Shared semantic models make downstream analysis views shorter, more maintainable, and easier to extend
+- Shared family models should define both family identity and business-facing reporting eligibility
+- Non-core families can remain available in the warehouse while still being excluded consistently from core summary and analysis layers
 
 ## Major project milestones so far
 
 ### Historical product coverage
-A major issue was uncovered when order items joined poorly to the current product dimension. Investigation showed that historical sold products had often been deleted from Shopify, and some sold rows had blank SKUs. This was solved by building `dim_products_historical`, which restored complete product coverage for historical sales analysis.
+A major issue was uncovered when order items joined poorly to the current product dimension.
+
+Investigation showed that historical sold products had often been deleted from Shopify, and some sold rows had blank SKUs. This was solved by building `dim_products_historical`, which restored complete product coverage for historical sales analysis.
 
 ### Product family rollups
 Analysis Pack v1 work uncovered additional historical naming issues, including:
@@ -129,7 +139,7 @@ As product-family logic became a repeated semantic dependency across the project
 - `product_family_map`
 - `dim_product_families`
 
-This centralized product-family assignment and canonical naming, reduced repeated downstream regex logic, and created a reusable family layer for future analysis.
+This centralized product-family assignment, canonical naming, and business-facing family reporting eligibility, reduced repeated downstream regex logic, and created a reusable family layer for future analysis.
 
 ### Customer order behavior
 Analysis Pack v1 expanded into customer-level behavior modeling with a reusable customer-grain analysis view supporting:
@@ -142,7 +152,6 @@ Analysis Pack v1 expanded into customer-level behavior modeling with a reusable 
 This work established a customer behavior layer built from `fct_orders`, with completed-order metrics based on non-cancelled orders and customer email used as the practical business key.
 
 ### Customer lifecycle, retention, and segmentation
-
 Analysis Pack v1 now also includes:
 - customer recency segmentation
 - customer cohort retention
@@ -156,7 +165,6 @@ This extends the project from static customer summaries into lifecycle, retentio
 - which customers are loyal, high-value, recent one-time buyers, or win-back candidates
 
 ### Product-family customer behavior
-
 Analysis Pack v1 also includes:
 - product-family customer mix analysis
 
@@ -167,22 +175,19 @@ This connects product-family performance to customer behavior, helping answer:
 - which families look more acquisition-oriented versus loyalty-oriented
 
 ### Dashboard-ready KPI summary layer
-
 The next phase of Analysis Pack v1 began the project’s summary layer with `anl_daily_kpi_summary`, a one-row-per-day business summary built for BI consumption.
 
 This layer consolidates core daily business metrics including:
-
-* submitted, completed, and cancelled orders
-* customers purchasing each day
-* new vs returning customers
-* units sold
-* gross revenue, refunded amount, and net revenue after refunds
-* average order value and core daily rates
+- submitted, completed, and cancelled orders
+- customers purchasing each day
+- new vs returning customers
+- units sold
+- gross revenue, refunded amount, and net revenue after refunds
+- average order value and core daily rates
 
 This creates a cleaner semantic bridge between detailed warehouse models and future dashboards.
 
 ### Monthly business summary layer
-
 The summary layer was extended with `anl_monthly_business_summary`, a one-row-per-month rollup built on top of `anl_daily_kpi_summary`.
 
 This layer consolidates monthly business performance into a cleaner reporting view including:
@@ -195,13 +200,36 @@ This layer consolidates monthly business performance into a cleaner reporting vi
 
 This makes the warehouse more useful for business-owner reporting and provides a stronger monthly semantic layer for future dashboards.
 
-## Current focus
+### Monthly customer summary layer
+The summary layer was extended again with `anl_customer_summary`, a one-row-per-month customer reporting layer built to support BI-friendly customer mix and lifecycle reporting.
+
+This layer consolidates monthly customer performance including:
+- active customers
+- new vs returning customers
+- one-time vs repeat customer base composition
+- recency / lifecycle mix
+- value / segment mix
+- customer-focused month-over-month changes
+
+### Monthly family summary layer
+The summary layer now also includes `anl_family_summary`, a one-row-per-month-per-family reporting layer built for BI-friendly family performance analysis.
+
+This layer consolidates monthly family performance including:
+- family revenue
+- orders containing each family
+- units sold
+- monthly family customer counts
+- new vs returning family customers
+- family share of monthly business
+- month-over-month family trend fields
+- BI-friendly family tiers and trend status
 
 ## Current focus
 
-Current work is centered on Analysis Pack v1, which now includes product-family analysis, customer analysis, and dashboard-ready summary layers:
+Current work is centered on Analysis Pack v1, which now includes product-family analysis, customer analysis, shared semantic family logic, and dashboard-ready summary layers:
 - family-level product performance
 - shared product-family modeling for reusable downstream family analysis
+- upstream reusable core-family filtering
 - monthly product-family revenue trends
 - recent family trend classification
 - customer order behavior
@@ -213,14 +241,12 @@ Current work is centered on Analysis Pack v1, which now includes product-family 
   - daily KPI summary
   - monthly business summary
   - monthly customer summary
+  - monthly family summary
 - review and validation queries for business-facing analysis
 
 ## Future roadmap
 
 - generate real business insights for Mischief Made from the warehouse
-- expand the summary layer into:
-  - customer summary
-  - family summary
 - BI dashboarding
 - ingestion / refresh scheduling
 - additional source integration:
@@ -230,4 +256,3 @@ Current work is centered on Analysis Pack v1, which now includes product-family 
   - Pinterest Ads
 - cross-channel revenue and marketing analysis
 - eventual migration to dbt + Snowflake
-

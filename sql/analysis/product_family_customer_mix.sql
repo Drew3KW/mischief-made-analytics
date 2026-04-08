@@ -10,7 +10,7 @@
 -- - Uses shared family models from marts.product_family_map and marts.dim_product_families
 -- - Excludes cancelled / voided orders
 -- - Excludes suspect historical timing rows
--- - Excludes non-core accessory / promo families that are not useful for this analysis
+-- - Filters to core families via shared upstream family metadata
 -- - Connects product-family analysis with customer behavior analysis
 
 CREATE OR REPLACE VIEW `mischief-made-analytics.marts.anl_product_family_customer_mix` AS
@@ -56,10 +56,7 @@ joined AS (
     WHERE pfm.product_family_key IS NOT NULL
       AND dpf.product_family_name IS NOT NULL
       AND TRIM(dpf.product_family_name) <> ''
-    AND NOT REGEXP_CONTAINS(
-      LOWER(dpf.product_family_name),
-      r'\b(mystery boxes?|stickers?|decals?|keychains?|greeting[ -]?cards?|pins?|patches?|magnets?)\b'
-    )
+      AND dpf.is_core_family = TRUE
 ),
 
 family_rollup AS (
@@ -85,8 +82,12 @@ family_customer_base AS (
 family_customer_metrics AS (
     SELECT
         fcb.product_family_key,
-        COUNT(DISTINCT CASE WHEN cob.customer_type = 'one_time' THEN fcb.customer_email END) AS one_time_customers_who_bought_family,
-        COUNT(DISTINCT CASE WHEN cob.customer_type = 'repeat' THEN fcb.customer_email END) AS repeat_customers_who_bought_family,
+        COUNT(DISTINCT CASE
+            WHEN cob.customer_type = 'one_time' THEN fcb.customer_email
+        END) AS one_time_customers_who_bought_family,
+        COUNT(DISTINCT CASE
+            WHEN cob.customer_type = 'repeat' THEN fcb.customer_email
+        END) AS repeat_customers_who_bought_family,
         ROUND(AVG(cob.lifetime_revenue), 2) AS avg_customer_lifetime_revenue,
         ROUND(AVG(cob.lifetime_orders), 2) AS avg_customer_lifetime_orders
     FROM family_customer_base AS fcb

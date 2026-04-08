@@ -5,10 +5,10 @@
 --
 -- Notes:
 -- - Built from marts.dim_products_historical
--- - Reuses the family derivation logic currently embedded in family-level analysis views
 -- - Keeps family assignment logic centralized for downstream reuse
--- - product_family_key is derived from SKU when possible, with fallback to normalized product-name logic
--- - canonical_product_family_name is the cleaned family-facing name for downstream business analysis
+-- - Adds reusable business-facing family inclusion metadata
+-- - Non-core families remain queryable, but can now be excluded consistently
+--   by downstream analysis models via is_core_family
 
 CREATE OR REPLACE TABLE `mischief-made-analytics.marts.product_family_map` AS
 
@@ -18,19 +18,24 @@ WITH product_base AS (
         dph.product_name,
         dph.sku,
         dph.source_type,
+
         LOWER(TRIM(dph.product_key)) AS normalized_product_key,
         LOWER(TRIM(dph.sku)) AS normalized_sku,
+
         REGEXP_REPLACE(
             LOWER(TRIM(dph.sku)),
             r'-(xxs|xs|s|m|l|xl|xxl|2x|2xl|3x|3xl|4x|4xl|5x|5xl|6x|6xl|3xk)$',
             ''
         ) AS normalized_sku_family,
+
         LOWER(TRIM(dph.product_name)) AS normalized_product_name,
+
         REGEXP_REPLACE(
             LOWER(TRIM(dph.product_name)),
             r'[^a-z0-9]+',
             '_'
         ) AS normalized_product_name_key,
+
         REGEXP_REPLACE(
             REGEXP_REPLACE(
                 REGEXP_REPLACE(
@@ -53,55 +58,94 @@ family_logic AS (
         product_name,
         sku,
         source_type,
+
         CASE
             WHEN normalized_sku IS NOT NULL
              AND normalized_sku != ''
              AND normalized_sku NOT IN (
-                'sticker', 'stickers', 'greeting card', 'greeting-card', 'greeting_card',
-                'card', 'cards', 'patch', 'patches', 'pin', 'pins', 'magnet', 'magnets',
-                'tote bag', 'tote-bag', 'tote_bag', 'tote', 'decal', 'decal sticker'
+                'sticker', 'stickers',
+                'greeting card', 'greeting-card', 'greeting_card',
+                'card', 'cards',
+                'patch', 'patches',
+                'pin', 'pins',
+                'magnet', 'magnets',
+                'tote bag', 'tote-bag', 'tote_bag', 'tote',
+                'decal', 'decal sticker'
              )
              AND normalized_sku_family NOT IN (
-                'sticker', 'stickers', 'greeting card', 'greeting-card', 'greeting_card',
-                'card', 'cards', 'patch', 'patches', 'pin', 'pins', 'magnet', 'magnets',
-                'tote bag', 'tote-bag', 'tote_bag', 'tote', 'decal', 'decal sticker'
+                'sticker', 'stickers',
+                'greeting card', 'greeting-card', 'greeting_card',
+                'card', 'cards',
+                'patch', 'patches',
+                'pin', 'pins',
+                'magnet', 'magnets',
+                'tote bag', 'tote-bag', 'tote_bag', 'tote',
+                'decal', 'decal sticker'
              )
-                THEN normalized_sku_family
+            THEN normalized_sku_family
+
             WHEN normalized_product_name IS NULL
               OR normalized_product_name = ''
               OR normalized_product_name IN (
-                'sticker', 'stickers', 'greeting card', 'card', 'cards', 'patch', 'patches',
-                'pin', 'pins', 'magnet', 'magnets', 'tote bag', 'tote', 'decal', 'decal sticker'
+                'sticker', 'stickers',
+                'greeting card',
+                'card', 'cards',
+                'patch', 'patches',
+                'pin', 'pins',
+                'magnet', 'magnets',
+                'tote bag', 'tote',
+                'decal', 'decal sticker'
               )
-                THEN normalized_product_key
+            THEN normalized_product_key
+
             ELSE normalized_product_name_family_key
         END AS product_family_key,
+
         CASE
             WHEN product_name IS NOT NULL AND TRIM(product_name) != '' THEN product_name
             WHEN sku IS NOT NULL AND TRIM(sku) != '' THEN sku
             ELSE product_key
         END AS raw_product_family_name,
+
         CASE
             WHEN normalized_sku IS NOT NULL
              AND normalized_sku != ''
              AND normalized_sku NOT IN (
-                'sticker', 'stickers', 'greeting card', 'greeting-card', 'greeting_card',
-                'card', 'cards', 'patch', 'patches', 'pin', 'pins', 'magnet', 'magnets',
-                'tote bag', 'tote-bag', 'tote_bag', 'tote', 'decal', 'decal sticker'
+                'sticker', 'stickers',
+                'greeting card', 'greeting-card', 'greeting_card',
+                'card', 'cards',
+                'patch', 'patches',
+                'pin', 'pins',
+                'magnet', 'magnets',
+                'tote bag', 'tote-bag', 'tote_bag', 'tote',
+                'decal', 'decal sticker'
              )
              AND normalized_sku_family NOT IN (
-                'sticker', 'stickers', 'greeting card', 'greeting-card', 'greeting_card',
-                'card', 'cards', 'patch', 'patches', 'pin', 'pins', 'magnet', 'magnets',
-                'tote bag', 'tote-bag', 'tote_bag', 'tote', 'decal', 'decal sticker'
+                'sticker', 'stickers',
+                'greeting card', 'greeting-card', 'greeting_card',
+                'card', 'cards',
+                'patch', 'patches',
+                'pin', 'pins',
+                'magnet', 'magnets',
+                'tote bag', 'tote-bag', 'tote_bag', 'tote',
+                'decal', 'decal sticker'
              )
-                THEN 'sku_family'
+            THEN 'sku_family'
+
             WHEN normalized_product_name IS NULL
               OR normalized_product_name = ''
               OR normalized_product_name IN (
-                'sticker', 'stickers', 'greeting card', 'card', 'cards', 'patch', 'patches',
-                'pin', 'pins', 'magnet', 'magnets', 'tote bag', 'tote', 'decal', 'decal sticker'
+                'sticker', 'stickers',
+                'greeting card',
+                'card', 'cards',
+                'patch', 'patches',
+                'pin', 'pins',
+                'magnet', 'magnets',
+                'tote bag', 'tote',
+                'decal', 'decal sticker'
               )
-                THEN 'product_key_fallback'
+            THEN 'product_key_fallback'
+
             ELSE 'product_name_family'
         END AS family_assignment_method
     FROM product_base
@@ -116,6 +160,7 @@ cleaned_family_names AS (
         product_name,
         sku,
         raw_product_family_name,
+
         TRIM(
             REGEXP_REPLACE(
                 REGEXP_REPLACE(
@@ -153,17 +198,132 @@ canonical_family_names AS (
             COUNT(*) AS product_rows,
             ROW_NUMBER() OVER (
                 PARTITION BY product_family_key
-                ORDER BY
-                    COUNT(*) DESC,
-                    LENGTH(cleaned_product_family_name) ASC,
-                    cleaned_product_family_name ASC
+                ORDER BY COUNT(*) DESC, LENGTH(cleaned_product_family_name) ASC, cleaned_product_family_name ASC
             ) AS rn
         FROM cleaned_family_names
         WHERE cleaned_product_family_name IS NOT NULL
           AND TRIM(cleaned_product_family_name) != ''
-        GROUP BY product_family_key, cleaned_product_family_name
+        GROUP BY
+            product_family_key,
+            cleaned_product_family_name
     )
     WHERE rn = 1
+),
+
+family_reporting_flags AS (
+    SELECT
+        product_family_key,
+        canonical_product_family_name,
+
+        CASE
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bmystery\s+box(es)?\b'
+            ) THEN FALSE
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bgift\s+(card|cards|certificate|certificates|box|boxes)\b|\bgiftbox(es)?\b'
+            ) THEN FALSE
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\b(sticker|stickers|decal|decals|keychain|keychains|greeting[ -]?card|greeting[ -]?cards|patch|patches|magnet|magnets)\b'
+            ) THEN FALSE
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin(s)?\b'
+            )
+            AND NOT REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin\s+up\b'
+            ) THEN FALSE
+
+            ELSE TRUE
+        END AS is_core_family,
+
+        CASE
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bmystery\s+box(es)?\b'
+            ) THEN 'non_core_mystery_box'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bgift\s+(card|cards|certificate|certificates|box|boxes)\b|\bgiftbox(es)?\b'
+            ) THEN 'non_core_gift_item'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\b(sticker|stickers|decal|decals|keychain|keychains|greeting[ -]?card|greeting[ -]?cards|patch|patches|magnet|magnets)\b'
+            ) THEN 'non_core_accessory_or_promo'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin(s)?\b'
+            )
+            AND NOT REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin\s+up\b'
+            ) THEN 'non_core_accessory_or_promo'
+
+            ELSE 'core_merchandise'
+        END AS family_reporting_category,
+
+        CASE
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bmystery\s+box(es)?\b'
+            ) THEN 'mystery_box'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bgift\s+(card|cards|certificate|certificates|box|boxes)\b|\bgiftbox(es)?\b'
+            ) THEN 'gift_item'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bsticker(s)?\b'
+            ) THEN 'sticker'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bdecal(s)?\b'
+            ) THEN 'decal'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bkeychain(s)?\b'
+            ) THEN 'keychain'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bgreeting[ -]?card(s)?\b'
+            ) THEN 'greeting_card'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpatch(es)?\b'
+            ) THEN 'patch'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bmagnet(s)?\b'
+            ) THEN 'magnet'
+
+            WHEN REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin(s)?\b'
+            )
+            AND NOT REGEXP_CONTAINS(
+                LOWER(canonical_product_family_name),
+                r'\bpin\s+up\b'
+            ) THEN 'pin'
+
+            ELSE NULL
+        END AS family_exclusion_reason
+    FROM canonical_family_names
 )
 
 SELECT
@@ -175,7 +335,12 @@ SELECT
     cfn.sku,
     cfn.source_type,
     cfn.family_assignment_method,
-    cfan.canonical_product_family_name
+    cfan.canonical_product_family_name,
+    frf.is_core_family,
+    frf.family_reporting_category,
+    frf.family_exclusion_reason
 FROM cleaned_family_names AS cfn
 LEFT JOIN canonical_family_names AS cfan
-    ON cfn.product_family_key = cfan.product_family_key;
+    ON cfn.product_family_key = cfan.product_family_key
+LEFT JOIN family_reporting_flags AS frf
+    ON cfn.product_family_key = frf.product_family_key;
