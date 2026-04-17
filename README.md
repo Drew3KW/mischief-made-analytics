@@ -19,7 +19,7 @@ This project serves two purposes:
 - BigQuery
 - Shopify CSV exports
 - SQL
-- Apache Airflow (local MVP orchestration in WSL / Ubuntu)
+- Apache Airflow (local MVP orchestration + validation in WSL / Ubuntu)
 - GitHub
 
 ## Current warehouse structure
@@ -29,6 +29,7 @@ This project serves two purposes:
 - `marts`: dimensional models and fact tables
 - `sql/analysis`: business-facing analysis queries and semantic analysis-layer models
 - `sql/validation`: QA and validation queries
+- `sql/validation/assertions`: Airflow-friendly machine-readable validation checks
 - `docs/milestones`: milestone writeups documenting major project steps
 - `dags/`: Airflow orchestration DAGs for warehouse refresh
 
@@ -108,6 +109,14 @@ This project serves two purposes:
 - `customer_summary_validation.sql`
 - `family_summary_validation.sql`
 
+### Airflow assertion-based validation
+
+- `sql/validation/assertions/dim_customers_assertions.sql`
+- `sql/validation/assertions/fct_orders_assertions.sql`
+- `sql/validation/assertions/fct_order_items_assertions.sql`
+- `sql/validation/assertions/product_family_models_assertions.sql`
+- `sql/validation/assertions/anl_daily_kpi_summary_assertions.sql`
+
 ## Current orchestration layer
 
 ### Airflow MVP
@@ -119,13 +128,21 @@ The project now includes a first local Apache Airflow orchestration DAG:
 Current MVP scope:
 
 - manual trigger
-- refreshes `staging` -> `marts` -> `analysis`
+- refreshes `staging` -> `marts` -> `analysis` -> `validation`
 - executes checked-in repo SQL files in BigQuery
+- runs machine-readable validation gates after warehouse refresh
 - designed as the first orchestration layer before automated ingestion is added
 
-This milestone establishes the orchestration foundation for future work such as:
+Current validation task coverage includes:
 
-- validation task groups
+- `validate_dim_customers`
+- `validate_fct_orders`
+- `validate_fct_order_items`
+- `validate_product_family_models`
+- `validate_anl_daily_kpi_summary`
+
+This milestone establishes the orchestration and validation foundation for future work such as:
+
 - scheduled refreshes
 - raw CSV load automation
 - future multi-source ingestion expansion
@@ -148,6 +165,8 @@ This milestone establishes the orchestration foundation for future work such as:
 - Shared semantic models make downstream analysis views shorter, more maintainable, and easier to extend
 - Shared family models should define both family identity and business-facing reporting eligibility
 - Non-core families can remain available in the warehouse while still being excluded consistently from core summary and analysis layers
+- Machine-readable validation should test actual model contracts, not stricter assumptions than the warehouse itself guarantees
+- Review-oriented QA queries and Airflow pass / fail assertions serve different purposes and are both useful
 
 ## Major project milestones so far
 
@@ -292,7 +311,28 @@ This milestone introduced a first working local Airflow DAG that can rebuild the
 - `marts`
 - `analysis`
 
-This establishes a real orchestration layer for the project and creates a foundation for future refresh scheduling, validation task groups, raw load automation, and multi-source pipeline growth.
+This established a real orchestration layer for the project and created a foundation for future refresh scheduling, validation task groups, raw load automation, and multi-source pipeline growth.
+
+### Airflow validation MVP
+
+The Airflow MVP has now been extended with a first machine-readable validation layer.
+
+The local DAG now runs:
+
+- `staging`
+- `marts`
+- `analysis`
+- `validation`
+
+This validation layer uses checked-in BigQuery `ASSERT` SQL files to enforce pass / fail model contracts for:
+
+- `dim_customers`
+- `fct_orders`
+- `fct_order_items`
+- shared product-family models
+- `anl_daily_kpi_summary`
+
+This makes the pipeline more trustworthy for future scheduling by ensuring the warehouse refresh can fail fast when core data contracts break.
 
 ## Current focus
 
@@ -315,12 +355,12 @@ Current work is centered on the project’s first orchestration phase, building 
   - monthly family summary
 - review and validation queries for business-facing analysis
 - local Airflow MVP orchestration for warehouse refresh
+- local Airflow validation MVP for machine-readable post-refresh quality gates
 
 ## Future roadmap
 
 - generate real business insights for Mischief Made from the warehouse
 - BI dashboarding
-- validation task groups in Airflow
 - refresh scheduling
 - raw CSV load orchestration
 - additional source integration:
