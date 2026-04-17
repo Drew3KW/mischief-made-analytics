@@ -221,4 +221,37 @@ with DAG(
             anl_product_family_customer_mix,
         ] >> anl_family_summary
 
-    staging >> marts >> analysis
+    with TaskGroup(group_id="validation") as validation:
+        validate_dim_customers = build_bq_sql_task(
+            task_id="validate_dim_customers",
+            sql_relative_path="sql/validation/assertions/dim_customers_assertions.sql",
+        )
+
+        validate_fct_orders = build_bq_sql_task(
+            task_id="validate_fct_orders",
+            sql_relative_path="sql/validation/assertions/fct_orders_assertions.sql",
+        )
+
+        validate_fct_order_items = build_bq_sql_task(
+            task_id="validate_fct_order_items",
+            sql_relative_path="sql/validation/assertions/fct_order_items_assertions.sql",
+        )
+
+        validate_product_family_models = build_bq_sql_task(
+            task_id="validate_product_family_models",
+            sql_relative_path="sql/validation/assertions/product_family_models_assertions.sql",
+        )
+
+        validate_anl_daily_kpi_summary = build_bq_sql_task(
+            task_id="validate_anl_daily_kpi_summary",
+            sql_relative_path="sql/validation/assertions/anl_daily_kpi_summary_assertions.sql",
+        )
+
+        [
+            validate_dim_customers,
+            validate_fct_orders,
+            validate_fct_order_items,
+            validate_product_family_models,
+        ] >> validate_anl_daily_kpi_summary
+
+    staging >> marts >> analysis >> validation
