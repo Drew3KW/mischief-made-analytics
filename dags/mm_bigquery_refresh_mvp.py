@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from airflow import DAG
@@ -10,6 +10,11 @@ from airflow.sdk import TaskGroup
 
 # Repo root = parent of the dags/ folder
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+DEFAULT_ARGS = {
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
+}
 
 
 def build_bq_sql_task(
@@ -39,7 +44,7 @@ with DAG(
     dag_id="mm_bigquery_refresh_mvp",
     description="Manual MVP refresh for staging, marts, and analysis layers in BigQuery.",
     start_date=datetime(2026, 4, 1),
-    schedule=None,
+    schedule="@daily",
     catchup=False,
     max_active_runs=1,
     tags=["mischief-made", "bigquery", "portfolio", "mvp"],
