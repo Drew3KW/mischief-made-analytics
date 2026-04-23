@@ -24,13 +24,14 @@ This project serves two purposes:
 
 ## Current warehouse structure
 
-- `raw`: raw source ingestion
+- `raw`: canonical raw source history
+- `raw_load`: latest landed source-file imports used for canonical raw rebuild
 - `staging`: cleaned and typed source models
 - `marts`: dimensional models and fact tables
 - `sql/analysis`: business-facing analysis queries and semantic analysis-layer models
 - `sql/validation`: QA and validation queries
 - `docs/milestones`: milestone writeups documenting major project steps
-- `dags/`: Airflow orchestration DAGs for warehouse refresh
+- `dags/`: Airflow orchestration DAGs
 
 ## Current source systems
 
@@ -112,22 +113,57 @@ This project serves two purposes:
 
 ### Airflow MVP
 
-The project now includes a local Apache Airflow orchestration DAG:
+The project now includes two local Apache Airflow DAGs:
 
 - `mm_bigquery_refresh_mvp`
+- `mm_shopify_raw_load_and_refresh_mvp`
 
-Current MVP scope:
+### `mm_bigquery_refresh_mvp`
+
+Current refresh DAG scope:
 
 - supports both manual trigger and daily scheduled refresh
 - refreshes `staging` -> `marts` -> `analysis` -> `validation`
 - executes checked-in repo SQL files in BigQuery
 - includes a machine-readable validation task group using BigQuery `ASSERT`
 - uses lightweight retry settings for local resiliency
-- is designed as the first orchestration layer before automated ingestion is added
+
+### `mm_shopify_raw_load_and_refresh_mvp`
+
+Current raw-load DAG scope:
+
+- supports manual local Shopify CSV ingestion
+- expects local source files under:
+  - `local_data/shopify/customers.csv`
+  - `local_data/shopify/products.csv`
+  - `local_data/shopify/orders.csv`
+- loads latest source files into:
+  - `raw_load.shopify_customers_latest`
+  - `raw_load.shopify_products_latest`
+  - `raw_load.shopify_orders_latest`
+- rebuilds canonical raw history tables:
+  - `raw.shopify_customers`
+  - `raw.shopify_products`
+  - `raw.shopify_orders`
+- then continues through:
+  - `staging`
+  - `marts`
+  - `analysis`
+  - `validation`
+
+Current raw-load DAG flow:
+
+- `check_input_files`
+- `raw_load`
+- `raw_rebuild`
+- `staging`
+- `marts`
+- `analysis`
+- `validation`
 
 This milestone sequence establishes the orchestration foundation for future work such as:
 
-- raw CSV load automation
+- broader raw CSV load automation
 - future multi-source ingestion expansion
 - later production-style orchestration patterns
 
@@ -149,6 +185,8 @@ This milestone sequence establishes the orchestration foundation for future work
 - Shared semantic models make downstream analysis views shorter, more maintainable, and easier to extend
 - Shared family models should define both family identity and business-facing reporting eligibility
 - Non-core families can remain available in the warehouse while still being excluded consistently from core summary and analysis layers
+- Raw ingestion and raw rebuild are separate concerns: latest landed files should not automatically overwrite canonical source history
+- Source-file schema drift is a real ingestion concern and should be handled deliberately at the raw rebuild boundary
 
 ## Major project milestones so far
 
@@ -297,21 +335,30 @@ This established a real orchestration layer for the project and created a founda
 
 The orchestration layer was then extended with a machine-readable validation task group.
 
-This milestone added assertion SQL files under `sql/validation/assertions/` and integrated them into the DAG so warehouse refreshes now end with explicit pass / fail validation checks for key models.
-
-This improved both warehouse trust and portfolio realism by adding a first true data-quality gate to the pipeline.
+This milestone added assertion SQL files under `sql/validation/assertions/` and integrated them into the DAG so warehouse refreshes now end with explicit pass / fail validation checks for key models. This improved both warehouse trust and portfolio realism by adding a first true data-quality gate to the pipeline.
 
 ### Airflow scheduled refresh MVP
 
 The Airflow MVP was then extended from manual-only execution into scheduled recurring refresh.
 
-This milestone added a daily schedule and lightweight retry settings to the local DAG while retaining simple local-development safeguards such as `catchup=False` and `max_active_runs=1`.
+This milestone added a daily schedule and lightweight retry settings to the local DAG while retaining simple local-development safeguards such as `catchup=False` and `max_active_runs=1`. The scheduled DAG was validated through both manual execution and the first successful automatic scheduled run, confirming that the local Airflow layer now supports refresh, validation, and recurring execution together.
 
-The scheduled DAG was validated through both manual execution and the first successful automatic scheduled run, confirming that the local Airflow layer now supports refresh, validation, and recurring execution together.
+### Airflow raw CSV load MVP
+
+The orchestration layer has now been extended into local raw source ingestion.
+
+This milestone added a second local Airflow DAG that:
+
+- loads current Shopify CSV exports into `raw_load`
+- rebuilds canonical `raw` history tables
+- refreshes the downstream warehouse
+- runs machine-readable validation at the end
+
+This made the project substantially more realistic as an analytics engineering portfolio piece by moving beyond warehouse-only refreshes into a source-ingestion-plus-refresh workflow.
 
 ## Current focus
 
-Current work is centered on extending the project’s orchestration layer beyond one-off local refreshes.
+Current work is centered on extending the project’s orchestration layer beyond warehouse-only rebuilds.
 
 The project now has:
 
@@ -319,15 +366,16 @@ The project now has:
 - dashboard-ready summary layers
 - local Airflow warehouse orchestration
 - machine-readable validation tasks
-- daily scheduled warehouse refresh in local Airflow
+- daily scheduled warehouse refresh
+- local raw Shopify CSV ingestion and canonical raw rebuild
 
-The next likely engineering focus is moving from scheduled warehouse rebuilds toward raw CSV load automation and broader ingestion design.
+The next likely engineering focus is continuing to strengthen ingestion, documentation, and operational polish while preparing for broader source expansion and BI/dashboard work.
 
 ## Future roadmap
 
 - generate real business insights for Mischief Made from the warehouse
 - BI dashboarding
-- raw CSV load orchestration
+- broader raw CSV load orchestration
 - additional source integration:
   - Etsy
   - Faire
