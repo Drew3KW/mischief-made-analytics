@@ -19,11 +19,15 @@ This project serves two purposes:
 - BigQuery
 - Shopify CSV exports
 - SQL
-- Apache Airflow (local MVP orchestration in WSL / Ubuntu)
+- Apache Airflow 3
+- Docker Compose
+- WSL / Ubuntu local development
 - GitHub
 
 ## Current warehouse structure
 
+- `raw`: canonical raw source history
+- `raw_load`: latest landed source-file imports used for canonical raw rebuild
 - `raw`: canonical raw source history
 - `raw_load`: latest landed source-file imports used for canonical raw rebuild
 - `staging`: cleaned and typed source models
@@ -109,11 +113,41 @@ This project serves two purposes:
 - `customer_summary_validation.sql`
 - `family_summary_validation.sql`
 
+### Machine-readable Airflow assertions
+
+The Airflow DAGs include machine-readable validation tasks backed by BigQuery assertion SQL under:
+
+- `sql/validation/assertions/`
+
+These assertions act as pass / fail data quality gates at the end of the orchestrated pipeline.
+
 ## Current orchestration layer
 
-### Airflow MVP
+### Airflow Docker Compose MVP
 
-The project now includes two local Apache Airflow DAGs:
+The project now uses Docker Compose as the preferred local Airflow runtime.
+
+Current Docker Compose services:
+
+- `postgres`
+- `airflow-apiserver`
+- `airflow-scheduler`
+- `airflow-dag-processor`
+- `airflow-init`
+
+The Dockerized setup replaced the earlier `airflow standalone` local runtime after standalone became unstable during iterative testing.
+
+Docker Compose provides a more explicit local development environment with:
+
+- Postgres-backed Airflow metadata
+- reproducible Airflow dependencies
+- mounted repo folders for DAGs, SQL, data files, logs, and keys
+- stable local UI / scheduler / DAG processor services
+- environment-based GCP authentication
+
+### Current Airflow DAGs
+
+The project includes two local Apache Airflow DAGs:
 
 - `mm_bigquery_refresh_mvp`
 - `mm_shopify_raw_load_and_refresh_mvp`
@@ -161,11 +195,100 @@ Current raw-load DAG flow:
 - `analysis`
 - `validation`
 
-This milestone sequence establishes the orchestration foundation for future work such as:
+## Local Docker Airflow workflow
 
-- broader raw CSV load automation
-- future multi-source ingestion expansion
-- later production-style orchestration patterns
+The project uses Docker Compose to run a local Airflow 3 environment.
+
+Docker provides a more stable and reproducible local orchestration setup than `airflow standalone`.
+
+### Prerequisites
+
+- Docker Desktop for Windows
+- WSL integration enabled in Docker Desktop
+- GCP service account key available locally
+- Shopify CSV exports available locally
+
+### Local-only files
+
+The following files are required for local execution but should not be committed:
+
+```text
+keys/gcp-sa.json
+local_data/shopify/*.csv
+logs/
+```
+
+### Expected local files
+
+Place the GCP service account key here:
+
+```text
+keys/gcp-sa.json
+```
+
+Place Shopify CSV exports here:
+
+```text
+local_data/shopify/customers.csv
+local_data/shopify/products.csv
+local_data/shopify/orders.csv
+```
+
+### Start Airflow
+
+From the repo root:
+
+```bash
+docker compose up airflow-init
+docker compose up -d
+```
+
+Then open:
+
+```text
+http://localhost:8080
+```
+
+Local login:
+
+```text
+admin / admin
+```
+
+### Run the pipeline
+
+Most local DAG work can be done from the Airflow UI.
+
+Current DAGs:
+
+- `mm_bigquery_refresh_mvp`
+  - refreshes the existing warehouse from current raw tables
+- `mm_shopify_raw_load_and_refresh_mvp`
+  - loads local Shopify CSV files
+  - rebuilds canonical raw tables
+  - refreshes staging, marts, analysis, and validation layers
+
+To run a DAG:
+
+1. open the Airflow UI
+2. choose the DAG
+3. click the manual trigger button
+4. monitor the run in Grid or Graph view
+5. inspect task logs from the UI if anything fails
+
+### Stop Airflow
+
+From the repo root:
+
+```bash
+docker compose down
+```
+
+If services were renamed or stale containers remain:
+
+```bash
+docker compose down --remove-orphans
+```
 
 ## Key modeling lessons so far
 
@@ -187,6 +310,8 @@ This milestone sequence establishes the orchestration foundation for future work
 - Non-core families can remain available in the warehouse while still being excluded consistently from core summary and analysis layers
 - Raw ingestion and raw rebuild are separate concerns: latest landed files should not automatically overwrite canonical source history
 - Source-file schema drift is a real ingestion concern and should be handled deliberately at the raw rebuild boundary
+- Local orchestration runtime state should be reproducible and disposable where practical
+- Docker Compose provides a more stable local orchestration foundation than `airflow standalone`
 
 ## Major project milestones so far
 
@@ -341,11 +466,16 @@ This milestone added assertion SQL files under `sql/validation/assertions/` and 
 
 The Airflow MVP was then extended from manual-only execution into scheduled recurring refresh.
 
-This milestone added a daily schedule and lightweight retry settings to the local DAG while retaining simple local-development safeguards such as `catchup=False` and `max_active_runs=1`. The scheduled DAG was validated through both manual execution and the first successful automatic scheduled run, confirming that the local Airflow layer now supports refresh, validation, and recurring execution together.
+This milestone added a daily schedule and lightweight retry settings to the local DAG while retaining simple local-development safeguards such as:
+
+- `catchup=False`
+- `max_active_runs=1`
+
+The scheduled DAG was validated through both manual execution and the first successful automatic scheduled run, confirming that the local Airflow layer now supports refresh, validation, and recurring execution together.
 
 ### Airflow raw CSV load MVP
 
-The orchestration layer has now been extended into local raw source ingestion.
+The orchestration layer was extended into local raw source ingestion.
 
 This milestone added a second local Airflow DAG that:
 
@@ -356,9 +486,29 @@ This milestone added a second local Airflow DAG that:
 
 This made the project substantially more realistic as an analytics engineering portfolio piece by moving beyond warehouse-only refreshes into a source-ingestion-plus-refresh workflow.
 
+### Airflow Docker Compose MVP
+
+The local Airflow runtime was migrated from `airflow standalone` to Docker Compose.
+
+This milestone added a Dockerized Airflow 3 environment with:
+
+- Postgres metadata database
+- Airflow API server / UI
+- scheduler
+- DAG processor
+- initialization service
+- custom Airflow image
+- mounted repo folders
+- mounted local GCP service account key
+- environment-backed BigQuery connection
+
+The full raw-load + warehouse refresh + validation DAG was successfully run end to end inside Docker.
+
+This created a more stable and reproducible local orchestration foundation for continued ingestion, BI, and future multi-source work.
+
 ## Current focus
 
-Current work is centered on extending the project’s orchestration layer beyond warehouse-only rebuilds.
+Current work is centered on strengthening the project’s orchestration and local development foundation after completing Analysis Pack v1.
 
 The project now has:
 
@@ -368,6 +518,7 @@ The project now has:
 - machine-readable validation tasks
 - daily scheduled warehouse refresh
 - local raw Shopify CSV ingestion and canonical raw rebuild
+- Docker Compose-based Airflow 3 runtime
 
 The next likely engineering focus is continuing to strengthen ingestion, documentation, and operational polish while preparing for broader source expansion and BI/dashboard work.
 
