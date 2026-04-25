@@ -1,0 +1,5 @@
+apache-airflow-providers-standard
+apache-airflow-providers-google
+apache-airflow-providers-fab
+google-cloud-bigquery
+pandas
