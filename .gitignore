@@ -9,3 +9,8 @@ dags/__pycache__/
 .ipynb_checkpoints/
 .airflow/
 local_data/
+
+# Local Airflow / Docker
+logs/
+keys/
+local_data/shopify/*.csv

@@ -1,0 +1,66 @@
+
+x-airflow-common:
+  &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__API_AUTH__JWT_SECRET: "mischief-made-local-airflow-jwt-secret-change-me"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/keys/gcp-sa.json
+    AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT: '{"conn_type":"google_cloud_platform","extra":{"project":"mischief-made-analytics","key_path":"/opt/airflow/keys/gcp-sa.json"}}'
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./sql:/opt/airflow/sql
+    - ./local_data:/opt/airflow/local_data
+    - ./logs:/opt/airflow/logs
+    - ./keys:/opt/airflow/keys
+  depends_on:
+    - postgres
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command: >
+      -c "
+      airflow db migrate &&
+      airflow users create
+      --username admin
+      --password admin
+      --firstname Drew
+      --lastname User
+      --role Admin
+      --email admin@example.com
+      "
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server --workers 1
+    ports:
+      - "8080:8080"
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+
+volumes:
+  postgres-db-volume:
