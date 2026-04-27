@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Local Python environments
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Local secrets and runtime files
+.env
+keys/
+logs/
+.airflow/
+
+# Local source data drops
+local_data/
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+
+# Misc logs
+*.log
