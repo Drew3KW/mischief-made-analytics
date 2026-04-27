@@ -22,12 +22,11 @@ This project serves two purposes:
 - Apache Airflow 3
 - Docker Compose
 - WSL / Ubuntu local development
+- VS Code
 - GitHub
 
 ## Current warehouse structure
 
-- `raw`: canonical raw source history
-- `raw_load`: latest landed source-file imports used for canonical raw rebuild
 - `raw`: canonical raw source history
 - `raw_load`: latest landed source-file imports used for canonical raw rebuild
 - `staging`: cleaned and typed source models
@@ -145,6 +144,19 @@ Docker Compose provides a more explicit local development environment with:
 - stable local UI / scheduler / DAG processor services
 - environment-based GCP authentication
 
+### Local Docker environment hardening
+
+The Docker Compose environment has been hardened for local development.
+
+The project now includes:
+
+- `.env.example`: safe committed template for local environment variables
+- `.dockerignore`: keeps local secrets, logs, source data drops, and runtime files out of Docker build context
+- `.gitignore`: protects local-only files such as `.env`, `keys/`, `logs/`, `.airflow/`, and `local_data/`
+- `docker-compose.yml`: uses environment variables for local Airflow, Postgres, and GCP configuration
+
+The real local `.env` file is not committed.
+
 ### Current Airflow DAGs
 
 The project includes two local Apache Airflow DAGs:
@@ -201,10 +213,17 @@ The project uses Docker Compose to run a local Airflow 3 environment.
 
 Docker provides a more stable and reproducible local orchestration setup than `airflow standalone`.
 
+The preferred local workflow is:
+
+1. edit files in VS Code
+2. run Docker Compose commands from the VS Code terminal
+3. use the Airflow localhost web UI for DAG triggering and task inspection
+
 ### Prerequisites
 
 - Docker Desktop for Windows
 - WSL integration enabled in Docker Desktop
+- VS Code with WSL workflow
 - GCP service account key available locally
 - Shopify CSV exports available locally
 
@@ -213,10 +232,30 @@ Docker provides a more stable and reproducible local orchestration setup than `a
 The following files are required for local execution but should not be committed:
 
 ```text
+.env
 keys/gcp-sa.json
 local_data/shopify/*.csv
 logs/
 ```
+
+### Environment setup
+
+Copy the committed environment template:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` locally as needed.
+
+Important local environment values include:
+
+- `GOOGLE_APPLICATION_CREDENTIALS`
+- `AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT`
+- `AIRFLOW__API_AUTH__JWT_SECRET`
+- local Airflow admin username/password values
+
+The `.env` file is intentionally ignored by Git.
 
 ### Expected local files
 
@@ -249,11 +288,42 @@ Then open:
 http://localhost:8080
 ```
 
-Local login:
+Local login defaults are controlled by `.env`.
+
+Typical local credentials:
 
 ```text
 admin / admin
 ```
+
+### Check Airflow services
+
+From the repo root:
+
+```bash
+docker compose ps
+```
+
+Expected services:
+
+- `postgres`
+- `airflow-apiserver`
+- `airflow-scheduler`
+- `airflow-dag-processor`
+- `airflow-init`
+
+### Check DAG discovery
+
+From the repo root:
+
+```bash
+docker compose exec airflow-apiserver airflow dags list
+```
+
+Expected DAGs:
+
+- `mm_bigquery_refresh_mvp`
+- `mm_shopify_raw_load_and_refresh_mvp`
 
 ### Run the pipeline
 
@@ -312,6 +382,8 @@ docker compose down --remove-orphans
 - Source-file schema drift is a real ingestion concern and should be handled deliberately at the raw rebuild boundary
 - Local orchestration runtime state should be reproducible and disposable where practical
 - Docker Compose provides a more stable local orchestration foundation than `airflow standalone`
+- Local environment variables should be documented with `.env.example`, while real local values live in uncommitted `.env`
+- Local secrets, data drops, and runtime logs should be kept out of both Git and Docker image build context
 
 ## Major project milestones so far
 
@@ -319,7 +391,9 @@ docker compose down --remove-orphans
 
 A major issue was uncovered when order items joined poorly to the current product dimension.
 
-Investigation showed that historical sold products had often been deleted from Shopify, and some sold rows had blank SKUs. This was solved by building `dim_products_historical`, which restored complete product coverage for historical sales analysis.
+Investigation showed that historical sold products had often been deleted from Shopify, and some sold rows had blank SKUs.
+
+This was solved by building `dim_products_historical`, which restored complete product coverage for historical sales analysis.
 
 ### Product family rollups
 
@@ -460,7 +534,9 @@ This established a real orchestration layer for the project and created a founda
 
 The orchestration layer was then extended with a machine-readable validation task group.
 
-This milestone added assertion SQL files under `sql/validation/assertions/` and integrated them into the DAG so warehouse refreshes now end with explicit pass / fail validation checks for key models. This improved both warehouse trust and portfolio realism by adding a first true data-quality gate to the pipeline.
+This milestone added assertion SQL files under `sql/validation/assertions/` and integrated them into the DAG so warehouse refreshes now end with explicit pass / fail validation checks for key models.
+
+This improved both warehouse trust and portfolio realism by adding a first true data-quality gate to the pipeline.
 
 ### Airflow scheduled refresh MVP
 
@@ -506,9 +582,25 @@ The full raw-load + warehouse refresh + validation DAG was successfully run end 
 
 This created a more stable and reproducible local orchestration foundation for continued ingestion, BI, and future multi-source work.
 
+### Docker local environment hardening
+
+The Dockerized local Airflow environment was then hardened for safer, cleaner local development.
+
+This milestone added:
+
+- `.env.example` for documented local configuration
+- local-only `.env` workflow for machine-specific values
+- `.dockerignore` to keep secrets, logs, runtime files, and local source data out of Docker build context
+- improved `.gitignore` protection for local-only files
+- environment-variable driven Docker Compose configuration
+
+The full raw-load + warehouse refresh + validation DAG was successfully re-run after the cleanup.
+
+This preserved the working local CSV ingestion path while making the Docker environment more reproducible and better prepared for Shopify API ingestion work.
+
 ## Current focus
 
-Current work is centered on strengthening the project’s orchestration and local development foundation after completing Analysis Pack v1.
+Current work is centered on strengthening the project’s orchestration and ingestion foundation after completing Analysis Pack v1.
 
 The project now has:
 
@@ -519,14 +611,18 @@ The project now has:
 - daily scheduled warehouse refresh
 - local raw Shopify CSV ingestion and canonical raw rebuild
 - Docker Compose-based Airflow 3 runtime
+- hardened local Docker environment configuration
 
-The next likely engineering focus is continuing to strengthen ingestion, documentation, and operational polish while preparing for broader source expansion and BI/dashboard work.
+The next likely engineering focus is a Shopify API ingestion spike.
+
+The existing local CSV ingestion path should remain the known-good fallback while API ingestion is explored in parallel.
 
 ## Future roadmap
 
 - generate real business insights for Mischief Made from the warehouse
 - BI dashboarding
 - broader raw CSV load orchestration
+- Shopify API ingestion
 - additional source integration:
   - Etsy
   - Faire
