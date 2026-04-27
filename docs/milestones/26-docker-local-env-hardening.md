@@ -10,7 +10,7 @@ The project now has a cleaner local Docker setup with:
 
 - a committed `.env.example` template
 - a local-only `.env` file for machine-specific configuration
-- a `.dockerignore` file to keep secrets, data drops, logs, and local runtime files out of Docker build context
+- a `.dockerignore` file to keep secrets, data drops, logs, and runtime files out of Docker build context
 - improved `.gitignore` protection for local-only files
 - a cleaner `docker-compose.yml` that uses environment variables instead of hardcoding local configuration values
 - a validated VS Code + Docker Compose + Airflow localhost UI workflow
@@ -142,3 +142,153 @@ The GCP service account key is still mounted locally at:
 
 ```text
 keys/gcp-sa.json
+```
+
+Inside the Airflow containers, this is available at:
+
+```text
+/opt/airflow/keys/gcp-sa.json
+```
+
+## Local environment workflow
+
+The preferred local workflow is now:
+
+1. edit files in VS Code
+2. run Docker Compose commands from the VS Code terminal
+3. use the Airflow localhost web UI for DAG triggering and task inspection
+
+The Airflow UI runs at:
+
+```text
+http://localhost:8080
+```
+
+The main local DAG for end-to-end testing is:
+
+```text
+mm_shopify_raw_load_and_refresh_mvp
+```
+
+This DAG:
+
+1. checks local Shopify CSV files
+2. loads customers/products/orders CSVs into `raw_load`
+3. rebuilds canonical `raw` customers/products/orders
+4. refreshes staging models
+5. refreshes marts models
+6. refreshes analysis models
+7. runs machine-readable validation assertions
+
+## Local-only files
+
+These files are required for local execution but should not be committed:
+
+```text
+.env
+keys/gcp-sa.json
+local_data/shopify/customers.csv
+local_data/shopify/products.csv
+local_data/shopify/orders.csv
+logs/
+```
+
+The committed template is:
+
+```text
+.env.example
+```
+
+To create a local environment file:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` locally in VS Code.
+
+## Validation performed
+
+After adding the environment hardening changes:
+
+1. Docker Compose was shut down.
+2. Airflow initialization was run again.
+3. Docker Compose services were restarted.
+4. Airflow services came up successfully.
+5. Airflow DAG discovery worked.
+6. The missing `AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT` warning was resolved after creating the local `.env` file.
+7. The full raw-load + warehouse refresh + validation DAG was triggered.
+8. The DAG succeeded end to end.
+
+Validated DAG:
+
+```text
+mm_shopify_raw_load_and_refresh_mvp
+```
+
+## Important issue resolved
+
+During validation, Docker Compose initially printed warnings like:
+
+```text
+The "AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT" variable is not set. Defaulting to a blank string.
+```
+
+This happened because `.env.example` had been created, but the local `.env` file had not yet been created.
+
+Resolution:
+
+```bash
+cp .env.example .env
+```
+
+After `.env` existed and included `AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT`, the warnings disappeared and the DAG succeeded.
+
+## Result
+
+The Dockerized local Airflow environment is now cleaner, safer, and easier to reproduce.
+
+The project now has:
+
+- a stable Docker Compose Airflow runtime
+- environment-based local configuration
+- protected local secrets and data files
+- a documented `.env.example`
+- a validated local GCP / BigQuery connection
+- a working Airflow localhost UI workflow
+- preserved local CSV ingestion fallback
+
+This milestone strengthens the operational foundation without changing business logic.
+
+## Relationship to future milestones
+
+This milestone prepares the project for the next ingestion phase.
+
+The current local CSV ingestion path remains the known-good baseline.
+
+The likely next milestone is:
+
+```text
+Milestone 27: Shopify API Ingestion Spike
+```
+
+That future work should explore direct Shopify API extraction in parallel with the current CSV pipeline.
+
+Preferred future migration path:
+
+```text
+Shopify API
+  -> separate API landing/test tables
+  -> comparison against CSV-derived warehouse outputs
+  -> eventual canonical raw rebuild
+```
+
+The existing CSV ingestion DAG should remain available as a fallback until API-derived data is validated against the current warehouse outputs.
+
+## Key lesson
+
+A working local orchestration environment is not only about getting containers to start.
+
+For an analytics engineering project, the local environment also needs to make configuration, credentials, secrets, source files, runtime logs, and reproducibility explicit.
+
+This milestone made those boundaries clearer while keeping the project beginner-friendly and practical.
