@@ -1,16 +1,27 @@
+# OS / editor files
 .DS_Store
 Thumbs.db
-*.log
-.env
-venv/
-.venv/
+
+# Python
 __pycache__/
 dags/__pycache__/
+*.py[cod]
 .ipynb_checkpoints/
+
+# Local Python environments
+venv/
+.venv/
+
+# Local environment variables / secrets
+.env
+keys/
+
+# Local Airflow runtime files
 .airflow/
+logs/
+
+# Local source data drops
 local_data/
 
-# Local Airflow / Docker
-logs/
-keys/
-local_data/shopify/*.csv
+# Logs
+*.log
