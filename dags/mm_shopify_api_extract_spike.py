@@ -161,18 +161,268 @@ def extract_orders_sample() -> None:
             displayFinancialStatus
             displayFulfillmentStatus
             email
+            currencyCode
+            presentmentCurrencyCode
+            tags
+            taxesIncluded
+            taxExempt
+            subtotalLineItemsQuantity
+
+            subtotalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            currentSubtotalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            totalDiscountsSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            currentTotalDiscountsSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            totalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            currentTotalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            totalTaxSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            currentTotalTaxSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            totalShippingPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            currentShippingPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            totalRefundedSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            totalRefundedShippingSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            netPaymentSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            totalReceivedSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+
             customer {
               id
               email
               displayName
             }
-            lineItems(first: 5) {
+
+            lineItems(first: 10) {
               edges {
                 node {
                   id
                   title
+                  name
                   quantity
+                  currentQuantity
                   sku
+                  variantTitle
+                  vendor
+                  requiresShipping
+                  taxable
+
+                  originalUnitPriceSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+
+                  discountedUnitPriceSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+
+                  discountedUnitPriceAfterAllDiscountsSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+
+                  originalTotalSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+
+                  discountedTotalSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+
+                  totalDiscountSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+
+                  taxLines {
+                    title
+                    rate
+                    priceSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                      presentmentMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+
                   variant {
                     id
                     sku
