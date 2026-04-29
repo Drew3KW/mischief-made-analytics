@@ -153,7 +153,15 @@ def extract_orders_sample() -> None:
           cursor
           node {
             id
+            legacyResourceId
             name
+            number
+            sourceName
+            sourceIdentifier
+            paymentGatewayNames
+            customerLocale
+            billingAddressMatchesShippingAddress
+
             createdAt
             updatedAt
             processedAt
@@ -167,6 +175,27 @@ def extract_orders_sample() -> None:
             taxesIncluded
             taxExempt
             subtotalLineItemsQuantity
+
+            billingAddress {
+              city
+              province
+              country
+              zip
+            }
+
+            shippingAddress {
+              city
+              province
+              country
+              zip
+            }
+
+            risk {
+              recommendation
+              assessments {
+                riskLevel
+              }
+            }
 
             subtotalPriceSet {
               shopMoney {
@@ -322,8 +351,71 @@ def extract_orders_sample() -> None:
               }
             }
 
+            shippingLines(first: 5) {
+              edges {
+                node {
+                  id
+                  title
+                  code
+                  carrierIdentifier
+                  source
+                  originalPriceSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+                  discountedPriceSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+                  currentDiscountedPriceSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                    presentmentMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+            }
+
+            fulfillments(first: 5) {
+              id
+              legacyResourceId
+              name
+              status
+              displayStatus
+              createdAt
+              updatedAt
+              totalQuantity
+              trackingInfo {
+                company
+                number
+                url
+              }
+            }
+
             customer {
               id
+              legacyResourceId
               email
               displayName
             }
@@ -336,11 +428,22 @@ def extract_orders_sample() -> None:
                   name
                   quantity
                   currentQuantity
+                  refundableQuantity
+                  nonFulfillableQuantity
+                  unfulfilledQuantity
+                  restockable
                   sku
                   variantTitle
                   vendor
                   requiresShipping
                   taxable
+
+                  product {
+                    id
+                    legacyResourceId
+                    title
+                    handle
+                  }
 
                   originalUnitPriceSet {
                     shopMoney {
@@ -425,10 +528,12 @@ def extract_orders_sample() -> None:
 
                   variant {
                     id
+                    legacyResourceId
                     sku
                     title
                     product {
                       id
+                      legacyResourceId
                       title
                       handle
                     }
@@ -462,6 +567,7 @@ def extract_products_sample() -> None:
           cursor
           node {
             id
+            legacyResourceId
             title
             handle
             vendor
@@ -474,9 +580,13 @@ def extract_products_sample() -> None:
               edges {
                 node {
                   id
+                  legacyResourceId
                   title
                   sku
+                  barcode
                   price
+                  compareAtPrice
+                  taxable
                   inventoryQuantity
                   selectedOptions {
                     name
@@ -511,6 +621,7 @@ def extract_customers_sample() -> None:
           cursor
           node {
             id
+            legacyResourceId
             email
             firstName
             lastName
@@ -518,6 +629,10 @@ def extract_customers_sample() -> None:
             createdAt
             updatedAt
             numberOfOrders
+            amountSpent {
+              amount
+              currencyCode
+            }
             defaultAddress {
               city
               province
