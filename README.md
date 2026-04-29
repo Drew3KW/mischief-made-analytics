@@ -29,7 +29,7 @@ This project serves two purposes:
 ## Current warehouse structure
 
 - `raw`: canonical raw source history
-- `raw_load`: latest landed source-file imports used for canonical raw rebuild
+- `raw_load`: source-file and API landing tables used before canonical raw rebuild decisions
 - `staging`: cleaned and typed source models
 - `marts`: dimensional models and fact tables
 - `sql/analysis`: business-facing analysis queries and semantic analysis-layer models
@@ -41,10 +41,11 @@ This project serves two purposes:
 
 ## Current source systems
 
-- Shopify orders export
-- Shopify products export
-- Shopify customers export
+- Shopify orders CSV export
+- Shopify products CSV export
+- Shopify customers CSV export
 - Shopify Admin API spike outputs
+- Shopify Admin API product and variant landing tables
 
 ## Core models
 
@@ -129,10 +130,12 @@ Current DAGs:
   - extracts small Shopify Admin GraphQL API samples to local JSON files
 - `mm_shopify_bulk_operation_spike`
   - runs a Shopify Bulk Operation products/variants export to local JSONL
-
-The Shopify API DAGs are exploratory and do not write to BigQuery.
+- `mm_shopify_api_products_landing_mvp`
+  - runs a Shopify products/variants Bulk Operation and loads isolated API landing tables in BigQuery
 
 The CSV ingestion DAG remains the known-good ingestion path.
+
+The API landing DAG writes only to isolated `raw_load` tables and does not modify canonical raw tables or downstream business logic.
 
 ## Local Docker Airflow workflow
 
@@ -149,11 +152,11 @@ The preferred local workflow is:
 - VS Code with WSL workflow
 - GCP service account key available locally
 - Shopify CSV exports available locally
-- Shopify app credentials available locally for API spike DAGs
+- Shopify app credentials available locally for API DAGs
 
 ### Local-only files
 
-The following files are required or generated locally and should not be committed:
+The following files and folders are required or generated locally and should not be committed:
 
 ```text
 .env
@@ -161,6 +164,7 @@ keys/gcp-sa.json
 local_data/shopify/*.csv
 local_data/shopify_api_spike/
 local_data/shopify_bulk_spike/
+local_data/shopify_api_landing/
 logs/
 ```
 
@@ -246,6 +250,7 @@ Expected DAGs:
 - `mm_shopify_raw_load_and_refresh_mvp`
 - `mm_shopify_api_extract_spike`
 - `mm_shopify_bulk_operation_spike`
+- `mm_shopify_api_products_landing_mvp`
 
 ### Stop Airflow
 
@@ -259,13 +264,11 @@ If services were renamed or stale containers remain:
 docker compose down --remove-orphans
 ```
 
-## Shopify API spike workflow
+## Shopify API workflow
 
-The project includes an exploratory Shopify API ingestion spike.
+The project includes Shopify Admin API extraction and landing work.
 
-### Small GraphQL sample extraction
-
-DAG:
+### Small GraphQL sample extraction DAG
 
 ```text
 mm_shopify_api_extract_spike
@@ -289,9 +292,7 @@ Generated local output:
 local_data/shopify_api_spike/field_inventory.md
 ```
 
-### Bulk Operation proof of concept
-
-DAG:
+### Bulk Operation proof-of-concept DAG
 
 ```text
 mm_shopify_bulk_operation_spike
@@ -314,16 +315,45 @@ products_bulk_result_summary.md
 
 These outputs are local scratch data and should not be committed.
 
+### Products API landing MVP DAG
+
+```text
+mm_shopify_api_products_landing_mvp
+```
+
+Local output:
+
+```text
+local_data/shopify_api_landing/
+```
+
+BigQuery landing tables:
+
+```text
+raw_load.shopify_products_api_latest
+raw_load.shopify_product_variants_api_latest
+```
+
+Validation query:
+
+```text
+sql/validation/shopify_api_products_landing_validation.sql
+```
+
+Current validated API landing counts:
+
+```text
+Product: 671
+ProductVariant: 2436
+```
+
+The API landing path is isolated. It does not replace the CSV ingestion path, rebuild canonical raw tables, or change downstream staging, marts, or analysis logic.
+
 Current migration plan:
 
 ```text
-Shopify API
-  -> isolated API landing tables
-  -> API-vs-CSV comparison layer
-  -> eventual canonical raw rebuild
+Shopify API -> isolated API landing tables -> API-vs-CSV comparison layer -> eventual canonical raw rebuild
 ```
-
-The existing CSV ingestion path remains the fallback until API-derived data is reconciled.
 
 ## Key modeling lessons so far
 
@@ -339,6 +369,7 @@ The existing CSV ingestion path remains the fallback until API-derived data is r
 - Local secrets, data drops, API outputs, and runtime logs should stay out of Git and Docker image build context
 - Direct Shopify API ingestion should be developed in parallel with the current CSV ingestion path until API-derived outputs are reconciled
 - Bulk Operation JSONL output is useful for larger Shopify exports, but needs normalization before warehouse loading
+- API landing tables should remain isolated until reconciliation proves they can safely support canonical raw rebuild changes
 
 ## Major project milestones so far
 
@@ -448,6 +479,28 @@ Total JSONL lines: 3107
 
 The spike confirmed that Shopify API ingestion is viable, but should continue in parallel with the current CSV pipeline until API-derived outputs are reconciled against the existing warehouse.
 
+### Shopify API landing MVP
+
+The project added the first Shopify API-derived BigQuery landing path.
+
+This milestone added:
+
+- `mm_shopify_api_products_landing_mvp`
+- `raw_load.shopify_products_api_latest`
+- `raw_load.shopify_product_variants_api_latest`
+- `sql/validation/shopify_api_products_landing_validation.sql`
+
+The landing DAG runs a Shopify products/variants Bulk Operation, downloads local JSONL output, separates product and variant records, writes isolated BigQuery landing tables, and validates the parent-child relationship between products and variants.
+
+Validated landing counts:
+
+```text
+Product: 671
+ProductVariant: 2436
+```
+
+This is the first API-derived BigQuery ingestion path in the project. It intentionally does not modify canonical raw tables or downstream business-facing warehouse logic.
+
 ## Current focus
 
 Current work is centered on strengthening the project’s ingestion foundation.
@@ -461,14 +514,15 @@ The project now has:
 - machine-readable validation tasks
 - Shopify Admin API extraction spike
 - Shopify Bulk Operation proof of concept
+- isolated Shopify API products/variants landing tables in BigQuery
 
-The next likely milestone is isolated Shopify API landing in BigQuery, starting with products and product variants, while preserving the CSV pipeline as the known-good fallback.
+The next likely milestone is API-vs-CSV product reconciliation, starting with products and variants, while preserving the CSV pipeline as the known-good fallback.
 
 ## Future roadmap
 
-- isolated Shopify API landing tables
-- API-vs-CSV reconciliation layer
+- API-vs-CSV product reconciliation layer
 - scheduled Shopify API ingestion MVP
+- possible canonical raw rebuild from reconciled API data
 - BI dashboarding
 - additional source integration:
   - Etsy
