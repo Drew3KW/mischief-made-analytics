@@ -1,4 +1,4 @@
-# 28 - Shopify API Landing MVP
+# 29 - Shopify API Landing MVP
 
 ## Summary
 
