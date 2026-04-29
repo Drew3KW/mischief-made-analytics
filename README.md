@@ -31,7 +31,7 @@ This project serves two purposes:
 - `raw`: canonical raw source history
 - `raw_load`: source-file and API landing tables used before canonical raw rebuild decisions
 - `staging`: cleaned and typed source models
-- `marts`: dimensional models and fact tables
+- `marts`: dimensional models, fact tables, and selected analysis views
 - `sql/analysis`: business-facing analysis queries and semantic analysis-layer models
 - `sql/validation`: QA and validation queries
 - `docs/milestones`: milestone writeups documenting major project steps
@@ -91,6 +91,10 @@ This project serves two purposes:
 ### Customer x product-family analysis
 
 - `anl_product_family_customer_mix`
+
+### API reconciliation analysis
+
+- `anl_shopify_api_csv_product_reconciliation`
 
 ### Supporting validation
 
@@ -266,7 +270,7 @@ docker compose down --remove-orphans
 
 ## Shopify API workflow
 
-The project includes Shopify Admin API extraction and landing work.
+The project includes Shopify Admin API extraction, landing, and reconciliation work.
 
 ### Small GraphQL sample extraction DAG
 
@@ -340,7 +344,7 @@ Validation query:
 sql/validation/shopify_api_products_landing_validation.sql
 ```
 
-Current validated API landing counts:
+Validated API landing counts:
 
 ```text
 Product: 671
@@ -348,6 +352,43 @@ ProductVariant: 2436
 ```
 
 The API landing path is isolated. It does not replace the CSV ingestion path, rebuild canonical raw tables, or change downstream staging, marts, or analysis logic.
+
+### API vs CSV product reconciliation
+
+Analysis view:
+
+```text
+marts.anl_shopify_api_csv_product_reconciliation
+```
+
+Source SQL:
+
+```text
+sql/analysis/shopify_api_csv_product_reconciliation.sql
+```
+
+Validation SQL:
+
+```text
+sql/validation/shopify_api_csv_product_reconciliation_validation.sql
+```
+
+Key reconciliation results:
+
+```text
+API variants loaded:                         2,436
+Matched API -> CSV raw -> staging -> dim:    2,209
+API-only nonblank SKU variants:              0
+Duplicate API variant IDs:                   0
+Missing SKU variants:                        227
+Price differences:                           7
+```
+
+The 227 API variants missing SKUs were reviewed and found to be concentrated in non-core products such as socks, pins, wristlets, gift cards, mystery boxes, and accessories.
+
+The 7 price differences were limited to variants of one product.
+
+Inventory differences are treated as informational because inventory can change frequently.
 
 Current migration plan:
 
@@ -370,6 +411,8 @@ Shopify API -> isolated API landing tables -> API-vs-CSV comparison layer -> eve
 - Direct Shopify API ingestion should be developed in parallel with the current CSV ingestion path until API-derived outputs are reconciled
 - Bulk Operation JSONL output is useful for larger Shopify exports, but needs normalization before warehouse loading
 - API landing tables should remain isolated until reconciliation proves they can safely support canonical raw rebuild changes
+- API product variants with nonblank SKUs currently reconcile cleanly against the CSV-derived product warehouse
+- Missing API SKUs are concentrated in non-core products and should remain visible in reconciliation outputs
 
 ## Major project milestones so far
 
@@ -501,6 +544,29 @@ ProductVariant: 2436
 
 This is the first API-derived BigQuery ingestion path in the project. It intentionally does not modify canonical raw tables or downstream business-facing warehouse logic.
 
+### Shopify API vs CSV product reconciliation
+
+The project added a reconciliation layer comparing API-derived product and variant landing data against the existing CSV-derived product warehouse.
+
+This milestone added:
+
+- `marts.anl_shopify_api_csv_product_reconciliation`
+- `sql/analysis/shopify_api_csv_product_reconciliation.sql`
+- `sql/validation/shopify_api_csv_product_reconciliation_validation.sql`
+
+Key reconciliation findings:
+
+```text
+API variants loaded:                         2,436
+Matched API -> CSV raw -> staging -> dim:    2,209
+API-only nonblank SKU variants:              0
+Duplicate API variant IDs:                   0
+Missing SKU variants:                        227
+Price differences:                           7
+```
+
+The reconciliation confirmed that API variants with nonblank SKUs are represented in the current CSV-derived warehouse. Remaining review items are concentrated in non-core missing-SKU products and a small number of price differences on one product.
+
 ## Current focus
 
 Current work is centered on strengthening the project’s ingestion foundation.
@@ -515,12 +581,13 @@ The project now has:
 - Shopify Admin API extraction spike
 - Shopify Bulk Operation proof of concept
 - isolated Shopify API products/variants landing tables in BigQuery
+- API-vs-CSV product reconciliation
 
-The next likely milestone is API-vs-CSV product reconciliation, starting with products and variants, while preserving the CSV pipeline as the known-good fallback.
+The next likely milestone is planning a safe future product rebuild path from API-derived landing data, while preserving the CSV pipeline as the known-good fallback.
 
 ## Future roadmap
 
-- API-vs-CSV product reconciliation layer
+- API-derived product rebuild planning
 - scheduled Shopify API ingestion MVP
 - possible canonical raw rebuild from reconciled API data
 - BI dashboarding
