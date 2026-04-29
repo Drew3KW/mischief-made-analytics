@@ -1,4 +1,4 @@
-# 27 - Shopify API Ingestion Spike
+# 28 - Shopify API Ingestion Spike
 
 ## Summary
 
