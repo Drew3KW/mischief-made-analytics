@@ -18,6 +18,7 @@ This project serves two purposes:
 
 - BigQuery
 - Shopify CSV exports
+- Shopify Admin API
 - SQL
 - Apache Airflow 3
 - Docker Compose
@@ -34,13 +35,16 @@ This project serves two purposes:
 - `sql/analysis`: business-facing analysis queries and semantic analysis-layer models
 - `sql/validation`: QA and validation queries
 - `docs/milestones`: milestone writeups documenting major project steps
+- `docs/spikes`: exploratory technical notes and comparison writeups
 - `dags/`: Airflow orchestration DAGs
+- `scripts/`: local helper scripts
 
 ## Current source systems
 
 - Shopify orders export
 - Shopify products export
 - Shopify customers export
+- Shopify Admin API spike outputs
 
 ## Core models
 
@@ -87,44 +91,25 @@ This project serves two purposes:
 
 - `anl_product_family_customer_mix`
 
-### Supporting analysis / review queries
-
-- `product_family_recent_trends_review.sql`
-- `customer_order_behavior_review.sql`
-- `customer_recency_segments_review.sql`
-- `customer_cohort_retention_review.sql`
-- `product_family_customer_mix_review.sql`
-- `customer_rfm_segments_review.sql`
-- `daily_kpi_summary_review.sql`
-- `monthly_business_summary_review.sql`
-- `customer_summary_review.sql`
-- `family_summary_review.sql`
-
 ### Supporting validation
 
-- `customer_order_behavior_validation.sql`
-- `customer_recency_segments_validation.sql`
-- `customer_cohort_retention_validation.sql`
-- `product_family_customer_mix_validation.sql`
-- `customer_rfm_segments_validation.sql`
-- `daily_kpi_summary_validation.sql`
-- `monthly_business_summary_validation.sql`
-- `customer_summary_validation.sql`
-- `family_summary_validation.sql`
+Validation SQL lives under:
 
-### Machine-readable Airflow assertions
+```text
+sql/validation/
+```
 
-The Airflow DAGs include machine-readable validation tasks backed by BigQuery assertion SQL under:
+Machine-readable Airflow assertions live under:
 
-- `sql/validation/assertions/`
+```text
+sql/validation/assertions/
+```
 
-These assertions act as pass / fail data quality gates at the end of the orchestrated pipeline.
+These assertions act as pass / fail data quality gates at the end of orchestrated warehouse refreshes.
 
 ## Current orchestration layer
 
-### Airflow Docker Compose MVP
-
-The project now uses Docker Compose as the preferred local Airflow runtime.
+The project uses Docker Compose as the preferred local Airflow runtime.
 
 Current Docker Compose services:
 
@@ -134,84 +119,22 @@ Current Docker Compose services:
 - `airflow-dag-processor`
 - `airflow-init`
 
-The Dockerized setup replaced the earlier `airflow standalone` local runtime after standalone became unstable during iterative testing.
-
-Docker Compose provides a more explicit local development environment with:
-
-- Postgres-backed Airflow metadata
-- reproducible Airflow dependencies
-- mounted repo folders for DAGs, SQL, data files, logs, and keys
-- stable local UI / scheduler / DAG processor services
-- environment-based GCP authentication
-
-### Local Docker environment hardening
-
-The Docker Compose environment has been hardened for local development.
-
-The project now includes:
-
-- `.env.example`: safe committed template for local environment variables
-- `.dockerignore`: keeps local secrets, logs, source data drops, and runtime files out of Docker build context
-- `.gitignore`: protects local-only files such as `.env`, `keys/`, `logs/`, `.airflow/`, and `local_data/`
-- `docker-compose.yml`: uses environment variables for local Airflow, Postgres, and GCP configuration
-
-The real local `.env` file is not committed.
-
-### Current Airflow DAGs
-
-The project includes two local Apache Airflow DAGs:
+Current DAGs:
 
 - `mm_bigquery_refresh_mvp`
+  - refreshes staging, marts, analysis, and validation from existing raw tables
 - `mm_shopify_raw_load_and_refresh_mvp`
+  - loads local Shopify CSV files, rebuilds canonical raw tables, refreshes the warehouse, and runs validation
+- `mm_shopify_api_extract_spike`
+  - extracts small Shopify Admin GraphQL API samples to local JSON files
+- `mm_shopify_bulk_operation_spike`
+  - runs a Shopify Bulk Operation products/variants export to local JSONL
 
-### `mm_bigquery_refresh_mvp`
+The Shopify API DAGs are exploratory and do not write to BigQuery.
 
-Current refresh DAG scope:
-
-- supports both manual trigger and daily scheduled refresh
-- refreshes `staging` -> `marts` -> `analysis` -> `validation`
-- executes checked-in repo SQL files in BigQuery
-- includes a machine-readable validation task group using BigQuery `ASSERT`
-- uses lightweight retry settings for local resiliency
-
-### `mm_shopify_raw_load_and_refresh_mvp`
-
-Current raw-load DAG scope:
-
-- supports manual local Shopify CSV ingestion
-- expects local source files under:
-  - `local_data/shopify/customers.csv`
-  - `local_data/shopify/products.csv`
-  - `local_data/shopify/orders.csv`
-- loads latest source files into:
-  - `raw_load.shopify_customers_latest`
-  - `raw_load.shopify_products_latest`
-  - `raw_load.shopify_orders_latest`
-- rebuilds canonical raw history tables:
-  - `raw.shopify_customers`
-  - `raw.shopify_products`
-  - `raw.shopify_orders`
-- then continues through:
-  - `staging`
-  - `marts`
-  - `analysis`
-  - `validation`
-
-Current raw-load DAG flow:
-
-- `check_input_files`
-- `raw_load`
-- `raw_rebuild`
-- `staging`
-- `marts`
-- `analysis`
-- `validation`
+The CSV ingestion DAG remains the known-good ingestion path.
 
 ## Local Docker Airflow workflow
-
-The project uses Docker Compose to run a local Airflow 3 environment.
-
-Docker provides a more stable and reproducible local orchestration setup than `airflow standalone`.
 
 The preferred local workflow is:
 
@@ -226,15 +149,18 @@ The preferred local workflow is:
 - VS Code with WSL workflow
 - GCP service account key available locally
 - Shopify CSV exports available locally
+- Shopify app credentials available locally for API spike DAGs
 
 ### Local-only files
 
-The following files are required for local execution but should not be committed:
+The following files are required or generated locally and should not be committed:
 
 ```text
 .env
 keys/gcp-sa.json
 local_data/shopify/*.csv
+local_data/shopify_api_spike/
+local_data/shopify_bulk_spike/
 logs/
 ```
 
@@ -254,6 +180,10 @@ Important local environment values include:
 - `AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT`
 - `AIRFLOW__API_AUTH__JWT_SECRET`
 - local Airflow admin username/password values
+- `SHOPIFY_SHOP_DOMAIN`
+- `SHOPIFY_ADMIN_API_VERSION`
+- `SHOPIFY_API_CLIENT_ID`
+- `SHOPIFY_API_CLIENT_SECRET`
 
 The `.env` file is intentionally ignored by Git.
 
@@ -290,15 +220,7 @@ http://localhost:8080
 
 Local login defaults are controlled by `.env`.
 
-Typical local credentials:
-
-```text
-admin / admin
-```
-
 ### Check Airflow services
-
-From the repo root:
 
 ```bash
 docker compose ps
@@ -314,8 +236,6 @@ Expected services:
 
 ### Check DAG discovery
 
-From the repo root:
-
 ```bash
 docker compose exec airflow-apiserver airflow dags list
 ```
@@ -324,31 +244,10 @@ Expected DAGs:
 
 - `mm_bigquery_refresh_mvp`
 - `mm_shopify_raw_load_and_refresh_mvp`
-
-### Run the pipeline
-
-Most local DAG work can be done from the Airflow UI.
-
-Current DAGs:
-
-- `mm_bigquery_refresh_mvp`
-  - refreshes the existing warehouse from current raw tables
-- `mm_shopify_raw_load_and_refresh_mvp`
-  - loads local Shopify CSV files
-  - rebuilds canonical raw tables
-  - refreshes staging, marts, analysis, and validation layers
-
-To run a DAG:
-
-1. open the Airflow UI
-2. choose the DAG
-3. click the manual trigger button
-4. monitor the run in Grid or Graph view
-5. inspect task logs from the UI if anything fails
+- `mm_shopify_api_extract_spike`
+- `mm_shopify_bulk_operation_spike`
 
 ### Stop Airflow
-
-From the repo root:
 
 ```bash
 docker compose down
@@ -360,6 +259,72 @@ If services were renamed or stale containers remain:
 docker compose down --remove-orphans
 ```
 
+## Shopify API spike workflow
+
+The project includes an exploratory Shopify API ingestion spike.
+
+### Small GraphQL sample extraction
+
+DAG:
+
+```text
+mm_shopify_api_extract_spike
+```
+
+Local output:
+
+```text
+local_data/shopify_api_spike/
+```
+
+Field inventory helper:
+
+```bash
+python scripts/inspect_shopify_api_samples.py
+```
+
+Generated local output:
+
+```text
+local_data/shopify_api_spike/field_inventory.md
+```
+
+### Bulk Operation proof of concept
+
+DAG:
+
+```text
+mm_shopify_bulk_operation_spike
+```
+
+Local output:
+
+```text
+local_data/shopify_bulk_spike/
+```
+
+Expected local files include:
+
+```text
+products_bulk_start_response.json
+products_bulk_completed_status.json
+products_bulk_result.jsonl
+products_bulk_result_summary.md
+```
+
+These outputs are local scratch data and should not be committed.
+
+Current migration plan:
+
+```text
+Shopify API
+  -> isolated API landing tables
+  -> API-vs-CSV comparison layer
+  -> eventual canonical raw rebuild
+```
+
+The existing CSV ingestion path remains the fallback until API-derived data is reconciled.
+
 ## Key modeling lessons so far
 
 - Shopify raw exports are messy and best ingested as strings first
@@ -368,205 +333,74 @@ docker compose down --remove-orphans
 - `customer_email` is the current practical customer key
 - Current product exports do not fully represent historical sold products
 - Historical product coverage required a dedicated product spine
-- Historical product family analysis requires careful normalization of SKU and product name logic
-- Business-facing family rollups depend on choosing one canonical family name per family key
-- Trusted historical trend analysis requires filtering out suspect order-timing records
-- Customer behavior modeling should be built from the order fact as the source of truth
-- Customer descriptive attributes may be imperfect, but customer email remains the trusted analytical key
-- Cohort analysis is especially sensitive to date quality, so trusted-date filtering matters at cohort assignment time, not just in downstream trend reporting
-- When business logic becomes reused across multiple analysis models, it should be promoted into shared warehouse models rather than repeated downstream
-- Shared semantic models make downstream analysis views shorter, more maintainable, and easier to extend
-- Shared family models should define both family identity and business-facing reporting eligibility
-- Non-core families can remain available in the warehouse while still being excluded consistently from core summary and analysis layers
-- Raw ingestion and raw rebuild are separate concerns: latest landed files should not automatically overwrite canonical source history
-- Source-file schema drift is a real ingestion concern and should be handled deliberately at the raw rebuild boundary
-- Local orchestration runtime state should be reproducible and disposable where practical
-- Docker Compose provides a more stable local orchestration foundation than `airflow standalone`
+- Shared semantic logic should live upstream in reusable marts models rather than being repeated downstream
+- Raw ingestion and canonical raw rebuild are separate concerns
 - Local environment variables should be documented with `.env.example`, while real local values live in uncommitted `.env`
-- Local secrets, data drops, and runtime logs should be kept out of both Git and Docker image build context
+- Local secrets, data drops, API outputs, and runtime logs should stay out of Git and Docker image build context
+- Direct Shopify API ingestion should be developed in parallel with the current CSV ingestion path until API-derived outputs are reconciled
+- Bulk Operation JSONL output is useful for larger Shopify exports, but needs normalization before warehouse loading
 
 ## Major project milestones so far
 
-### Historical product coverage
+### Analysis Pack v1
 
-A major issue was uncovered when order items joined poorly to the current product dimension.
+Analysis Pack v1 established the core warehouse and business-facing analysis foundation, including:
 
-Investigation showed that historical sold products had often been deleted from Shopify, and some sold rows had blank SKUs.
-
-This was solved by building `dim_products_historical`, which restored complete product coverage for historical sales analysis.
-
-### Product family rollups
-
-Analysis Pack v1 work uncovered additional historical naming issues, including:
-
-- size suffixes leaking into family-level names
-- generic names over-grouping unrelated products
-- multiple family names appearing for the same family key
-
-These were addressed by:
-
-- refining family-key logic
-- improving canonical family naming
-- building monthly family revenue outputs using trusted dates
-- adding recent-trend analysis at product family grain
-
-### Shared product-family models
-
-As product-family logic became a repeated semantic dependency across the project, it was promoted into shared marts models:
-
-- `product_family_map`
-- `dim_product_families`
-
-This centralized product-family assignment, canonical naming, and business-facing family reporting eligibility, reduced repeated downstream regex logic, and created a reusable family layer for future analysis.
-
-### Customer order behavior
-
-Analysis Pack v1 expanded into customer-level behavior modeling with a reusable customer-grain analysis view supporting:
-
-- repeat vs one-time customer analysis
-- average order value analysis
-- top-customer identification
-- cancellation behavior review
-- refund behavior review
-
-This work established a customer behavior layer built from `fct_orders`, with completed-order metrics based on non-cancelled orders and customer email used as the practical business key.
-
-### Customer lifecycle, retention, and segmentation
-
-Analysis Pack v1 now also includes:
-
+- warehouse foundation
+- historical product coverage
+- shared product-family models
+- upstream core-family filtering
+- product-family performance and trends
+- customer order behavior
 - customer recency segmentation
 - customer cohort retention
-- customer RFM-style segmentation
-
-This extends the project from static customer summaries into lifecycle, retention, and segmentation analysis, helping answer:
-
-- which customers are active, warming, cooling, or lapsed
-- whether customer cohorts return over time
-- how quickly cohorts decay after acquisition
-- how much revenue cohorts generate across later lifecycle months
-- which customers are loyal, high-value, recent one-time buyers, or win-back candidates
-
-### Product-family customer behavior
-
-Analysis Pack v1 also includes:
-
-- product-family customer mix analysis
-
-This connects product-family performance to customer behavior, helping answer:
-
-- which families attract more repeat customers
-- which families appear more often in first orders
-- which families are associated with higher-value customers
-- which families look more acquisition-oriented versus loyalty-oriented
-
-### Dashboard-ready KPI summary layer
-
-The next phase of Analysis Pack v1 began the project’s summary layer with `anl_daily_kpi_summary`, a one-row-per-day business summary built for BI consumption.
-
-This layer consolidates core daily business metrics including:
-
-- submitted, completed, and cancelled orders
-- customers purchasing each day
-- new vs returning customers
-- units sold
-- gross revenue, refunded amount, and net revenue after refunds
-- average order value and core daily rates
-
-This creates a cleaner semantic bridge between detailed warehouse models and future dashboards.
-
-### Monthly business summary layer
-
-The summary layer was extended with `anl_monthly_business_summary`, a one-row-per-month rollup built on top of `anl_daily_kpi_summary`.
-
-This layer consolidates monthly business performance into a cleaner reporting view including:
-
-- submitted, completed, and cancelled orders
-- customer totals and new vs returning customer mix
-- units sold
-- gross revenue, refunded amount, and net revenue after refunds
-- blended monthly KPIs such as average order value and average units per order
-- month-over-month changes in revenue, orders, and customers
-
-This makes the warehouse more useful for business-owner reporting and provides a stronger monthly semantic layer for future dashboards.
-
-### Monthly customer summary layer
-
-The summary layer was extended again with `anl_customer_summary`, a one-row-per-month customer reporting layer built to support BI-friendly customer mix and lifecycle reporting.
-
-This layer consolidates monthly customer performance including:
-
-- active customers
-- new vs returning customers
-- one-time vs repeat customer base composition
-- recency / lifecycle mix
-- value / segment mix
-- customer-focused month-over-month changes
-
-### Monthly family summary layer
-
-The summary layer now also includes `anl_family_summary`, a one-row-per-month-per-family reporting layer built for BI-friendly family performance analysis.
-
-This layer consolidates monthly family performance including:
-
-- family revenue
-- orders containing each family
-- units sold
-- monthly family customer counts
-- new vs returning family customers
-- family share of monthly business
-- month-over-month family trend fields
-- BI-friendly family tiers and trend status
+- product-family x customer behavior analysis
+- customer RFM segmentation
+- dashboard-ready daily KPI summary
+- dashboard-ready monthly business summary
+- dashboard-ready monthly customer summary
+- dashboard-ready monthly family summary
 
 ### Airflow local MVP orchestration
 
-With Analysis Pack v1 effectively complete, the project’s next phase moved from standalone SQL development into orchestration.
+The project moved from standalone SQL development into orchestration with a local Airflow DAG that refreshes the warehouse in dependency order across:
 
-This milestone introduced a first working local Airflow DAG that can rebuild the warehouse in dependency order across:
+```text
+staging -> marts -> analysis
+```
 
-- `staging`
-- `marts`
-- `analysis`
+This created the foundation for validation, scheduling, raw load automation, and multi-source pipeline growth.
 
-This established a real orchestration layer for the project and created a foundation for validation, refresh scheduling, raw load automation, and multi-source pipeline growth.
+### Airflow validation and scheduled refresh
 
-### Airflow validation MVP
+The orchestration layer was extended with:
 
-The orchestration layer was then extended with a machine-readable validation task group.
-
-This milestone added assertion SQL files under `sql/validation/assertions/` and integrated them into the DAG so warehouse refreshes now end with explicit pass / fail validation checks for key models.
-
-This improved both warehouse trust and portfolio realism by adding a first true data-quality gate to the pipeline.
-
-### Airflow scheduled refresh MVP
-
-The Airflow MVP was then extended from manual-only execution into scheduled recurring refresh.
-
-This milestone added a daily schedule and lightweight retry settings to the local DAG while retaining simple local-development safeguards such as:
-
-- `catchup=False`
-- `max_active_runs=1`
-
-The scheduled DAG was validated through both manual execution and the first successful automatic scheduled run, confirming that the local Airflow layer now supports refresh, validation, and recurring execution together.
+- machine-readable validation assertions
+- pass / fail data quality gates
+- daily scheduled refresh
+- lightweight retry settings
+- local development safeguards such as `catchup=False` and `max_active_runs=1`
 
 ### Airflow raw CSV load MVP
 
-The orchestration layer was extended into local raw source ingestion.
+The project added local raw Shopify CSV ingestion through:
 
-This milestone added a second local Airflow DAG that:
+```text
+mm_shopify_raw_load_and_refresh_mvp
+```
 
-- loads current Shopify CSV exports into `raw_load`
-- rebuilds canonical `raw` history tables
-- refreshes the downstream warehouse
-- runs machine-readable validation at the end
+This DAG:
 
-This made the project substantially more realistic as an analytics engineering portfolio piece by moving beyond warehouse-only refreshes into a source-ingestion-plus-refresh workflow.
+- checks local Shopify CSV files
+- loads latest CSVs into `raw_load`
+- rebuilds canonical `raw` tables
+- refreshes staging, marts, analysis, and validation
 
 ### Airflow Docker Compose MVP
 
 The local Airflow runtime was migrated from `airflow standalone` to Docker Compose.
 
-This milestone added a Dockerized Airflow 3 environment with:
+This added:
 
 - Postgres metadata database
 - Airflow API server / UI
@@ -578,51 +412,64 @@ This milestone added a Dockerized Airflow 3 environment with:
 - mounted local GCP service account key
 - environment-backed BigQuery connection
 
-The full raw-load + warehouse refresh + validation DAG was successfully run end to end inside Docker.
-
-This created a more stable and reproducible local orchestration foundation for continued ingestion, BI, and future multi-source work.
-
 ### Docker local environment hardening
 
-The Dockerized local Airflow environment was then hardened for safer, cleaner local development.
+The Dockerized local Airflow environment was hardened with:
+
+- `.env.example`
+- local-only `.env` workflow
+- `.dockerignore`
+- improved `.gitignore`
+- environment-variable driven Docker Compose configuration
+
+This preserved the working local CSV ingestion path while making the Docker environment more reproducible.
+
+### Shopify API ingestion spike
+
+The project explored direct Shopify Admin API ingestion as a future supplement or replacement for manual Shopify CSV exports.
 
 This milestone added:
 
-- `.env.example` for documented local configuration
-- local-only `.env` workflow for machine-specific values
-- `.dockerignore` to keep secrets, logs, runtime files, and local source data out of Docker build context
-- improved `.gitignore` protection for local-only files
-- environment-variable driven Docker Compose configuration
+- Shopify API local environment configuration
+- `mm_shopify_api_extract_spike`
+- `scripts/inspect_shopify_api_samples.py`
+- `docs/spikes/27-shopify-api-vs-csv-field-comparison.md`
+- `mm_shopify_bulk_operation_spike`
 
-The full raw-load + warehouse refresh + validation DAG was successfully re-run after the cleanup.
+The spike proved that Dockerized Airflow can authenticate to Shopify, run GraphQL Admin API queries, write local JSON samples, generate field inventories, and run a Bulk Operation that exports product and product variant data as local JSONL.
 
-This preserved the working local CSV ingestion path while making the Docker environment more reproducible and better prepared for Shopify API ingestion work.
+The Bulk Operation proof produced:
+
+```text
+Product: 671
+ProductVariant: 2436
+Total JSONL lines: 3107
+```
+
+The spike confirmed that Shopify API ingestion is viable, but should continue in parallel with the current CSV pipeline until API-derived outputs are reconciled against the existing warehouse.
 
 ## Current focus
 
-Current work is centered on strengthening the project’s orchestration and ingestion foundation after completing Analysis Pack v1.
+Current work is centered on strengthening the project’s ingestion foundation.
 
 The project now has:
 
-- a complete Analysis Pack v1 foundation
+- completed Analysis Pack v1
 - dashboard-ready summary layers
-- local Airflow warehouse orchestration
+- Dockerized local Airflow orchestration
+- local Shopify CSV ingestion
 - machine-readable validation tasks
-- daily scheduled warehouse refresh
-- local raw Shopify CSV ingestion and canonical raw rebuild
-- Docker Compose-based Airflow 3 runtime
-- hardened local Docker environment configuration
+- Shopify Admin API extraction spike
+- Shopify Bulk Operation proof of concept
 
-The next likely engineering focus is a Shopify API ingestion spike.
-
-The existing local CSV ingestion path should remain the known-good fallback while API ingestion is explored in parallel.
+The next likely milestone is isolated Shopify API landing in BigQuery, starting with products and product variants, while preserving the CSV pipeline as the known-good fallback.
 
 ## Future roadmap
 
-- generate real business insights for Mischief Made from the warehouse
+- isolated Shopify API landing tables
+- API-vs-CSV reconciliation layer
+- scheduled Shopify API ingestion MVP
 - BI dashboarding
-- broader raw CSV load orchestration
-- Shopify API ingestion
 - additional source integration:
   - Etsy
   - Faire
