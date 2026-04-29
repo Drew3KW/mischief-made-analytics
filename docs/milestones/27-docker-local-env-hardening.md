@@ -1,4 +1,4 @@
-# Milestone 26: Docker Local Environment Hardening
+# Milestone 27: Docker Local Environment Hardening
 
 ## Summary
 
