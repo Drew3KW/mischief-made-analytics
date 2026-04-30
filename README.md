@@ -100,7 +100,7 @@ The Shopify API path currently lands data into isolated `raw_load` tables and is
 
 ## Shopify API status
 
-Working API landing coverage:
+Working scheduled local API landing coverage:
 
 - products
 - product variants
@@ -212,17 +212,18 @@ Completed:
 - Shopify Bulk Operation proof of concept
 - isolated Shopify API landing for products, customers, and orders
 - API-vs-CSV reconciliation for products, customers, and orders
+- scheduled local Shopify API landing
 
 Next focus:
 
-- scheduled Shopify API landing
-- eventual canonical raw rebuild planning
+- canonical raw rebuild planning for reconciled Shopify API data
+- future cloud-hosted scheduling for reliable overnight refreshes
 - BI/dashboarding
 
 ## Roadmap
 
-- Scheduled Shopify API ingestion
 - Possible canonical raw rebuild from reconciled API data
+- Cloud-hosted scheduled ingestion and refresh
 - BI/dashboarding
 - Etsy integration
 - Faire integration
