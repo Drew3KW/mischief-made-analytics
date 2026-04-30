@@ -7,17 +7,17 @@ This project is both:
 1. a real business decision-support system for Mischief Made
 2. a flagship portfolio project for an analytics engineering / data engineering career pivot
 
-The project currently focuses on Shopify sales, product, and customer data, with a roadmap toward multi-source business analytics across Shopify, Etsy, Faire, ads, and BI dashboards.
+The project currently uses Shopify data to model sales, products, customers, and business trends, with a roadmap toward multi-source analytics across Shopify, Etsy, Faire, ads, and BI dashboards.
 
 ## Goals
 
 - Build a reliable analytics warehouse for Mischief Made
-- Support business analysis around products, customers, revenue, and trends
+- Support analysis of revenue, products, customers, and trends
 - Practice production-style analytics engineering workflows
 - Demonstrate SQL, BigQuery, Airflow, Docker, Git, and data modeling skills
 - Create a foundation for future dbt + Snowflake migration
 
-## Current stack
+## Stack
 
 - BigQuery
 - Shopify CSV exports
@@ -49,7 +49,7 @@ Current:
 - Shopify orders CSV export
 - Shopify products CSV export
 - Shopify customers CSV export
-- Shopify Admin API product and variant landing data
+- Shopify Admin API product, variant, and customer landing data
 
 Planned:
 
@@ -57,18 +57,18 @@ Planned:
 - Faire
 - Etsy Ads
 - Pinterest Ads
-- additional BI/dashboard outputs
+- BI/dashboard outputs
 
-## Core warehouse models
+## Core models
 
-### Staging
+Staging:
 
 - `stg_shopify_order_items`
 - `stg_shopify_orders`
 - `stg_shopify_products`
 - `stg_shopify_customers`
 
-### Marts
+Marts:
 
 - `dim_products`
 - `dim_products_historical`
@@ -78,144 +78,87 @@ Planned:
 - `fct_order_items`
 - `fct_orders`
 
-### Business-facing analysis
+Business-facing analysis includes product-family performance, customer behavior, cohort retention, RFM segmentation, daily KPIs, monthly summaries, and API-vs-CSV reconciliation outputs.
 
-- `anl_product_performance_by_family`
-- `anl_product_revenue_monthly_by_family`
-- `anl_product_family_recent_trends`
-- `anl_customer_order_behavior`
-- `anl_customer_recency_segments`
-- `anl_customer_cohort_retention`
-- `anl_customer_rfm_segments`
-- `anl_product_family_customer_mix`
-- `anl_daily_kpi_summary`
-- `anl_monthly_business_summary`
-- `anl_customer_summary`
-- `anl_family_summary`
-- `anl_shopify_api_csv_product_reconciliation`
-
-## Current orchestration
+## Orchestration
 
 The project uses Docker Compose as the preferred local Airflow runtime.
-
-Current services:
-
-- `postgres`
-- `airflow-apiserver`
-- `airflow-scheduler`
-- `airflow-dag-processor`
-- `airflow-init`
 
 Current DAGs:
 
 - `mm_bigquery_refresh_mvp`
-  - refreshes staging, marts, analysis, and validation from existing raw tables
 - `mm_shopify_raw_load_and_refresh_mvp`
-  - loads local Shopify CSV files, rebuilds canonical raw tables, refreshes the warehouse, and runs validation
 - `mm_shopify_api_extract_spike`
-  - extracts small Shopify Admin GraphQL API samples to local JSON files
 - `mm_shopify_bulk_operation_spike`
-  - runs a Shopify Bulk Operation products/variants export to local JSONL
 - `mm_shopify_api_products_landing_mvp`
-  - runs a Shopify products/variants Bulk Operation and loads isolated API landing tables in BigQuery
+- `mm_shopify_api_customers_landing_mvp`
 
 The CSV ingestion DAG remains the known-good fallback path.
 
-The Shopify API path is currently isolated in `raw_load` and is being reconciled before any canonical raw rebuild changes.
+The Shopify API path currently lands data into isolated `raw_load` tables and is being reconciled before any canonical raw rebuild changes.
 
-## Shopify API progress
+## Shopify API status
 
-The project now includes a working Shopify Admin API product/variant landing path.
+Working API landing coverage:
 
-API landing tables:
+- products
+- product variants
+- customers
+
+Current API landing tables:
 
 ```text
 raw_load.shopify_products_api_latest
 raw_load.shopify_product_variants_api_latest
+raw_load.shopify_customers_api_latest
 ```
 
-API landing validation:
+Current reconciliation/validation coverage:
 
-```text
-sql/validation/shopify_api_products_landing_validation.sql
-```
-
-API-vs-CSV reconciliation view:
-
-```text
-marts.anl_shopify_api_csv_product_reconciliation
-```
-
-Reconciliation SQL:
-
-```text
-sql/analysis/shopify_api_csv_product_reconciliation.sql
-sql/validation/shopify_api_csv_product_reconciliation_validation.sql
-```
-
-Key reconciliation findings:
-
-```text
-API variants loaded:                         2,436
-Matched API -> CSV raw -> staging -> dim:    2,209
-API-only nonblank SKU variants:              0
-Duplicate API variant IDs:                   0
-Missing SKU variants:                        227
-Price differences:                           7
-```
-
-The 227 API variants missing SKUs were reviewed and found to be concentrated in non-core products such as socks, pins, wristlets, gift cards, mystery boxes, and accessories.
+- product and variant API landing validation
+- product API-vs-CSV reconciliation
+- customer API landing validation
 
 Current migration path:
 
 ```text
-Shopify API -> isolated API landing tables -> API-vs-CSV comparison layer -> eventual canonical raw rebuild
+Shopify API -> isolated API landing tables -> API-vs-CSV reconciliation -> eventual canonical raw rebuild
 ```
 
-## Local development workflow
+## Local development
 
-The preferred local workflow is:
-
-1. edit files in VS Code
-2. run Docker Compose commands from the VS Code terminal
-3. use the Airflow localhost web UI for DAG triggering and task inspection
-4. validate results in BigQuery
-5. commit code, docs, and validation SQL through Git/GitHub
-
-### Start Airflow
-
-From the repo root:
+Start Airflow:
 
 ```bash
 docker compose up airflow-init
 docker compose up -d
 ```
 
-Open the Airflow UI:
+Open Airflow:
 
 ```text
 http://localhost:8080
 ```
 
-### Check services
+Check services:
 
 ```bash
 docker compose ps
 ```
 
-### Check DAG discovery
+Check DAG discovery:
 
 ```bash
 docker compose exec airflow-apiserver airflow dags list
 ```
 
-### Stop Airflow
+Stop Airflow:
 
 ```bash
 docker compose down
 ```
 
-If stale containers remain:
+Remove stale containers if needed:
 
 ```bash
 docker compose down --remove-orphans
@@ -237,16 +180,6 @@ logs/
 
 The committed `.env.example` documents expected local environment variables.
 
-Important local values include:
-
-- `GOOGLE_APPLICATION_CREDENTIALS`
-- `AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT`
-- `AIRFLOW__API_AUTH__JWT_SECRET`
-- `SHOPIFY_SHOP_DOMAIN`
-- `SHOPIFY_ADMIN_API_VERSION`
-- `SHOPIFY_API_CLIENT_ID`
-- `SHOPIFY_API_CLIENT_SECRET`
-
 ## Modeling principles
 
 - Trusted dates are the default for business-facing analysis
@@ -258,7 +191,7 @@ Important local values include:
 - Raw ingestion and canonical raw rebuild are separate concerns
 - API ingestion should remain parallel to CSV ingestion until reconciliation is complete
 
-## Project status
+## Current status
 
 Completed:
 
@@ -271,18 +204,19 @@ Completed:
 - Shopify Bulk Operation proof of concept
 - isolated Shopify API product/variant landing tables
 - API-vs-CSV product reconciliation
+- isolated Shopify API customer landing table
 
-Current focus:
+Next focus:
 
-- planning a safe future product rebuild path from API-derived landing data
-- preserving the CSV pipeline as the known-good fallback
-- continuing toward more automated, multi-source ingestion
+- API-vs-CSV customer reconciliation
+- Shopify orders API landing
+- Shopify orders API-vs-CSV reconciliation
+- scheduled Shopify API landing
 
-## Future roadmap
+## Roadmap
 
-- API-derived product rebuild planning
-- scheduled Shopify API ingestion MVP
-- possible canonical raw rebuild from reconciled API data
+- Scheduled Shopify API ingestion
+- Possible canonical raw rebuild from reconciled API data
 - BI/dashboarding
 - Etsy integration
 - Faire integration

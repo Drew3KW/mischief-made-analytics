@@ -16,48 +16,56 @@ from google.cloud import bigquery
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_DIR = REPO_ROOT / "local_data" / "shopify_api_landing" / "products"
+OUTPUT_DIR = REPO_ROOT / "local_data" / "shopify_api_landing" / "customers"
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "mischief-made-analytics")
 LOCATION = os.getenv("BIGQUERY_LOCATION", "US")
 RAW_LOAD_DATASET = "raw_load"
 
-PRODUCTS_TABLE = f"{PROJECT_ID}.{RAW_LOAD_DATASET}.shopify_products_api_latest"
-VARIANTS_TABLE = f"{PROJECT_ID}.{RAW_LOAD_DATASET}.shopify_product_variants_api_latest"
+CUSTOMERS_TABLE = f"{PROJECT_ID}.{RAW_LOAD_DATASET}.shopify_customers_api_latest"
 
-BULK_PRODUCTS_QUERY = """
+BULK_CUSTOMERS_QUERY = """
 {
-  products {
+  customers {
     edges {
       node {
         id
         legacyResourceId
-        title
-        handle
-        vendor
-        productType
-        status
+        firstName
+        lastName
+        displayName
+        state
+        verifiedEmail
+        taxExempt
+        numberOfOrders
+        amountSpent {
+          amount
+          currencyCode
+        }
         createdAt
         updatedAt
         tags
-        variants {
-          edges {
-            node {
-              id
-              legacyResourceId
-              title
-              sku
-              barcode
-              price
-              compareAtPrice
-              taxable
-              inventoryQuantity
-              selectedOptions {
-                name
-                value
-              }
-            }
-          }
+        note
+        defaultEmailAddress {
+          emailAddress
+          marketingState
+          marketingOptInLevel
+          validFormat
+        }
+        defaultPhoneNumber {
+          phoneNumber
+          marketingState
+          marketingOptInLevel
+        }
+        defaultAddress {
+          company
+          address1
+          address2
+          city
+          provinceCode
+          countryCodeV2
+          zip
+          phone
         }
       }
     }
@@ -171,7 +179,8 @@ def _write_json(filename: str, payload: dict) -> None:
         json.dump(payload, file, indent=2, sort_keys=True)
 
     print(f"Wrote {output_path}")
-    
+
+
 def check_landing_output_dir_writeable() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -185,11 +194,8 @@ def check_landing_output_dir_writeable() -> None:
 def _record_type(record: dict) -> str:
     record_id = str(record.get("id", ""))
 
-    if "/ProductVariant/" in record_id:
-        return "ProductVariant"
-
-    if "/Product/" in record_id:
-        return "Product"
+    if "/Customer/" in record_id:
+        return "Customer"
 
     return "Other"
 
@@ -221,9 +227,26 @@ def _now_utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def start_products_bulk_operation() -> str:
+def _json_dumps_or_none(value: object) -> str | None:
+    if value is None:
+        return None
+
+    return json.dumps(value, sort_keys=True)
+
+
+def _safe_int(value: object) -> int | None:
+    if value is None:
+        return None
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def start_customers_bulk_operation() -> str:
     mutation = """
-    mutation StartProductsBulkOperation($query: String!, $groupObjects: Boolean!) {
+    mutation StartCustomersBulkOperation($query: String!, $groupObjects: Boolean!) {
       bulkOperationRunQuery(query: $query, groupObjects: $groupObjects) {
         bulkOperation {
           id
@@ -241,7 +264,7 @@ def start_products_bulk_operation() -> str:
     result = _shopify_graphql(
         mutation,
         {
-            "query": BULK_PRODUCTS_QUERY,
+            "query": BULK_CUSTOMERS_QUERY,
             "groupObjects": False,
         },
     )
@@ -263,18 +286,18 @@ def start_products_bulk_operation() -> str:
             + json.dumps(result, indent=2)
         )
 
-    _write_json("products_landing_bulk_start_response.json", result)
+    _write_json("customers_landing_bulk_start_response.json", result)
 
     operation_id = bulk_operation["id"]
-    print(f"Started products bulk operation: {operation_id}")
+    print(f"Started customers bulk operation: {operation_id}")
     return operation_id
 
 
-def poll_products_bulk_operation(**context) -> str:
-    operation_id = context["ti"].xcom_pull(task_ids="start_products_bulk_operation")
+def poll_customers_bulk_operation(**context) -> str:
+    operation_id = context["ti"].xcom_pull(task_ids="start_customers_bulk_operation")
 
     if not operation_id:
-        raise ValueError("Missing bulk operation ID from start_products_bulk_operation")
+        raise ValueError("Missing bulk operation ID from start_customers_bulk_operation")
 
     query = """
     query PollBulkOperation($id: ID!) {
@@ -325,11 +348,11 @@ def poll_products_bulk_operation(**context) -> str:
                     + json.dumps(bulk_operation, indent=2)
                 )
 
-            _write_json("products_landing_bulk_completed_status.json", result)
+            _write_json("customers_landing_bulk_completed_status.json", result)
             return result_url
 
         if status in {"FAILED", "CANCELED", "EXPIRED"}:
-            _write_json("products_landing_bulk_failed_status.json", result)
+            _write_json("customers_landing_bulk_failed_status.json", result)
             raise RuntimeError(
                 "Bulk operation did not complete successfully: "
                 + json.dumps(bulk_operation, indent=2)
@@ -338,7 +361,7 @@ def poll_products_bulk_operation(**context) -> str:
         time.sleep(sleep_seconds)
 
     if latest_result:
-        _write_json("products_landing_bulk_timeout_status.json", latest_result)
+        _write_json("customers_landing_bulk_timeout_status.json", latest_result)
 
     raise TimeoutError(
         f"Bulk operation did not complete after {max_attempts * sleep_seconds} seconds: "
@@ -346,14 +369,14 @@ def poll_products_bulk_operation(**context) -> str:
     )
 
 
-def download_products_bulk_result(**context) -> str:
-    result_url = context["ti"].xcom_pull(task_ids="poll_products_bulk_operation")
+def download_customers_bulk_result(**context) -> str:
+    result_url = context["ti"].xcom_pull(task_ids="poll_customers_bulk_operation")
 
     if not result_url:
-        raise ValueError("Missing result URL from poll_products_bulk_operation")
+        raise ValueError("Missing result URL from poll_customers_bulk_operation")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = OUTPUT_DIR / "products_landing_bulk_result.jsonl"
+    output_path = OUTPUT_DIR / "customers_landing_bulk_result.jsonl"
 
     request = Request(url=result_url, method="GET")
 
@@ -361,58 +384,109 @@ def download_products_bulk_result(**context) -> str:
         with output_path.open("wb") as output_file:
             shutil.copyfileobj(response, output_file)
 
-    print(f"Downloaded products bulk result to {output_path}")
+    print(f"Downloaded customers bulk result to {output_path}")
     return str(output_path)
 
 
-def load_products_api_latest(**context) -> int:
-    input_path_value = context["ti"].xcom_pull(task_ids="download_products_bulk_result")
+def load_customers_api_latest(**context) -> int:
+    input_path_value = context["ti"].xcom_pull(task_ids="download_customers_bulk_result")
 
     if not input_path_value:
-        raise ValueError("Missing JSONL path from download_products_bulk_result")
+        raise ValueError("Missing JSONL path from download_customers_bulk_result")
 
     input_path = Path(input_path_value)
     records = _read_jsonl_records(input_path)
     extracted_at = _now_utc_iso()
 
-    product_rows = []
+    customer_rows = []
 
     for record in records:
-        if _record_type(record) != "Product":
+        if _record_type(record) != "Customer":
             continue
 
-        product_rows.append(
+        amount_spent = record.get("amountSpent") or {}
+        default_email = record.get("defaultEmailAddress") or {}
+        default_phone = record.get("defaultPhoneNumber") or {}
+        default_address = record.get("defaultAddress") or {}
+
+        customer_rows.append(
             {
                 "api_extracted_at": extracted_at,
-                "shopify_product_graphql_id": record.get("id"),
-                "legacy_resource_id": record.get("legacyResourceId"),
-                "title": record.get("title"),
-                "handle": record.get("handle"),
-                "vendor": record.get("vendor"),
-                "product_type": record.get("productType"),
-                "status": record.get("status"),
+                "shopify_customer_graphql_id": record.get("id"),
+                "legacy_resource_id": str(record.get("legacyResourceId"))
+                if record.get("legacyResourceId") is not None
+                else None,
+                "email": default_email.get("emailAddress"),
+                "email_marketing_state": default_email.get("marketingState"),
+                "email_marketing_opt_in_level": default_email.get("marketingOptInLevel"),
+                "email_valid_format": default_email.get("validFormat"),
+                "first_name": record.get("firstName"),
+                "last_name": record.get("lastName"),
+                "display_name": record.get("displayName"),
+                "phone": default_phone.get("phoneNumber"),
+                "sms_marketing_state": default_phone.get("marketingState"),
+                "sms_marketing_opt_in_level": default_phone.get("marketingOptInLevel"),
+                "state": record.get("state"),
+                "verified_email": record.get("verifiedEmail"),
+                "tax_exempt": record.get("taxExempt"),
+                "number_of_orders": _safe_int(record.get("numberOfOrders")),
+                "amount_spent": str(amount_spent.get("amount"))
+                if amount_spent.get("amount") is not None
+                else None,
+                "amount_spent_currency": amount_spent.get("currencyCode"),
                 "created_at": record.get("createdAt"),
                 "updated_at": record.get("updatedAt"),
-                "tags_json": json.dumps(record.get("tags") or [], sort_keys=True),
+                "note": record.get("note"),
+                "tags_json": _json_dumps_or_none(record.get("tags") or []),
+                "default_address_company": default_address.get("company"),
+                "default_address_address1": default_address.get("address1"),
+                "default_address_address2": default_address.get("address2"),
+                "default_address_city": default_address.get("city"),
+                "default_address_province_code": default_address.get("provinceCode"),
+                "default_address_country_code": default_address.get("countryCodeV2"),
+                "default_address_zip": default_address.get("zip"),
+                "default_address_phone": default_address.get("phone"),
+                "default_address_json": _json_dumps_or_none(record.get("defaultAddress")),
                 "raw_record_json": json.dumps(record, sort_keys=True),
             }
         )
 
-    if not product_rows:
-        raise ValueError(f"No Product records found in {input_path}")
+    if not customer_rows:
+        raise ValueError(f"No Customer records found in {input_path}")
 
     schema = [
         bigquery.SchemaField("api_extracted_at", "TIMESTAMP"),
-        bigquery.SchemaField("shopify_product_graphql_id", "STRING"),
+        bigquery.SchemaField("shopify_customer_graphql_id", "STRING"),
         bigquery.SchemaField("legacy_resource_id", "STRING"),
-        bigquery.SchemaField("title", "STRING"),
-        bigquery.SchemaField("handle", "STRING"),
-        bigquery.SchemaField("vendor", "STRING"),
-        bigquery.SchemaField("product_type", "STRING"),
-        bigquery.SchemaField("status", "STRING"),
+        bigquery.SchemaField("email", "STRING"),
+        bigquery.SchemaField("email_marketing_state", "STRING"),
+        bigquery.SchemaField("email_marketing_opt_in_level", "STRING"),
+        bigquery.SchemaField("email_valid_format", "BOOL"),
+        bigquery.SchemaField("first_name", "STRING"),
+        bigquery.SchemaField("last_name", "STRING"),
+        bigquery.SchemaField("display_name", "STRING"),
+        bigquery.SchemaField("phone", "STRING"),
+        bigquery.SchemaField("sms_marketing_state", "STRING"),
+        bigquery.SchemaField("sms_marketing_opt_in_level", "STRING"),
+        bigquery.SchemaField("state", "STRING"),
+        bigquery.SchemaField("verified_email", "BOOL"),
+        bigquery.SchemaField("tax_exempt", "BOOL"),
+        bigquery.SchemaField("number_of_orders", "INT64"),
+        bigquery.SchemaField("amount_spent", "STRING"),
+        bigquery.SchemaField("amount_spent_currency", "STRING"),
         bigquery.SchemaField("created_at", "TIMESTAMP"),
         bigquery.SchemaField("updated_at", "TIMESTAMP"),
+        bigquery.SchemaField("note", "STRING"),
         bigquery.SchemaField("tags_json", "STRING"),
+        bigquery.SchemaField("default_address_company", "STRING"),
+        bigquery.SchemaField("default_address_address1", "STRING"),
+        bigquery.SchemaField("default_address_address2", "STRING"),
+        bigquery.SchemaField("default_address_city", "STRING"),
+        bigquery.SchemaField("default_address_province_code", "STRING"),
+        bigquery.SchemaField("default_address_country_code", "STRING"),
+        bigquery.SchemaField("default_address_zip", "STRING"),
+        bigquery.SchemaField("default_address_phone", "STRING"),
+        bigquery.SchemaField("default_address_json", "STRING"),
         bigquery.SchemaField("raw_record_json", "STRING"),
     ]
 
@@ -425,131 +499,57 @@ def load_products_api_latest(**context) -> int:
     )
 
     job = client.load_table_from_json(
-        product_rows,
-        PRODUCTS_TABLE,
+        customer_rows,
+        CUSTOMERS_TABLE,
         job_config=job_config,
         location=LOCATION,
     )
     job.result()
 
-    print(f"Loaded {len(product_rows)} Product rows into {PRODUCTS_TABLE}")
-    return len(product_rows)
+    print(f"Loaded {len(customer_rows)} Customer rows into {CUSTOMERS_TABLE}")
+    return len(customer_rows)
 
 
-def load_product_variants_api_latest(**context) -> int:
-    input_path_value = context["ti"].xcom_pull(task_ids="download_products_bulk_result")
-
-    if not input_path_value:
-        raise ValueError("Missing JSONL path from download_products_bulk_result")
-
-    input_path = Path(input_path_value)
-    records = _read_jsonl_records(input_path)
-    extracted_at = _now_utc_iso()
-
-    variant_rows = []
-
-    for record in records:
-        if _record_type(record) != "ProductVariant":
-            continue
-
-        variant_rows.append(
-            {
-                "api_extracted_at": extracted_at,
-                "shopify_product_variant_graphql_id": record.get("id"),
-                "shopify_product_graphql_id": record.get("__parentId"),
-                "legacy_resource_id": record.get("legacyResourceId"),
-                "title": record.get("title"),
-                "sku": record.get("sku"),
-                "barcode": record.get("barcode"),
-                "price": record.get("price"),
-                "compare_at_price": record.get("compareAtPrice"),
-                "taxable": record.get("taxable"),
-                "inventory_quantity": record.get("inventoryQuantity"),
-                "selected_options_json": json.dumps(
-                    record.get("selectedOptions") or [],
-                    sort_keys=True,
-                ),
-                "raw_record_json": json.dumps(record, sort_keys=True),
-            }
-        )
-
-    if not variant_rows:
-        raise ValueError(f"No ProductVariant records found in {input_path}")
-
-    schema = [
-        bigquery.SchemaField("api_extracted_at", "TIMESTAMP"),
-        bigquery.SchemaField("shopify_product_variant_graphql_id", "STRING"),
-        bigquery.SchemaField("shopify_product_graphql_id", "STRING"),
-        bigquery.SchemaField("legacy_resource_id", "STRING"),
-        bigquery.SchemaField("title", "STRING"),
-        bigquery.SchemaField("sku", "STRING"),
-        bigquery.SchemaField("barcode", "STRING"),
-        bigquery.SchemaField("price", "STRING"),
-        bigquery.SchemaField("compare_at_price", "STRING"),
-        bigquery.SchemaField("taxable", "BOOL"),
-        bigquery.SchemaField("inventory_quantity", "INT64"),
-        bigquery.SchemaField("selected_options_json", "STRING"),
-        bigquery.SchemaField("raw_record_json", "STRING"),
-    ]
-
-    client = bigquery.Client(project=PROJECT_ID)
-    job_config = bigquery.LoadJobConfig(
-        schema=schema,
-        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
-    )
-
-    job = client.load_table_from_json(
-        variant_rows,
-        VARIANTS_TABLE,
-        job_config=job_config,
-        location=LOCATION,
-    )
-    job.result()
-
-    print(f"Loaded {len(variant_rows)} ProductVariant rows into {VARIANTS_TABLE}")
-    return len(variant_rows)
-
-
-def validate_api_landing_tables() -> None:
+def validate_customers_api_landing_table() -> None:
     client = bigquery.Client(project=PROJECT_ID)
 
     query = f"""
     WITH
-      product_counts AS (
-        SELECT COUNT(*) AS product_count
-        FROM `{PRODUCTS_TABLE}`
+      customer_counts AS (
+        SELECT COUNT(*) AS customer_count
+        FROM `{CUSTOMERS_TABLE}`
       ),
 
-      variant_counts AS (
-        SELECT COUNT(*) AS variant_count
-        FROM `{VARIANTS_TABLE}`
+      duplicate_graphql_ids AS (
+        SELECT
+          COUNT(*) - COUNT(DISTINCT shopify_customer_graphql_id)
+            AS duplicate_graphql_id_count
+        FROM `{CUSTOMERS_TABLE}`
       ),
 
-      variants_missing_parent_id AS (
-        SELECT COUNT(*) AS variant_missing_parent_id_count
-        FROM `{VARIANTS_TABLE}`
-        WHERE shopify_product_graphql_id IS NULL
+      duplicate_legacy_resource_ids AS (
+        SELECT
+          COUNT(*) - COUNT(DISTINCT legacy_resource_id)
+            AS duplicate_legacy_resource_id_count
+        FROM `{CUSTOMERS_TABLE}`
+        WHERE legacy_resource_id IS NOT NULL
       ),
 
-      variant_orphans AS (
-        SELECT COUNT(*) AS variant_orphan_count
-        FROM `{VARIANTS_TABLE}` AS variants
-        LEFT JOIN `{PRODUCTS_TABLE}` AS products
-          ON variants.shopify_product_graphql_id = products.shopify_product_graphql_id
-        WHERE products.shopify_product_graphql_id IS NULL
+      missing_legacy_resource_ids AS (
+        SELECT COUNT(*) AS missing_legacy_resource_id_count
+        FROM `{CUSTOMERS_TABLE}`
+        WHERE legacy_resource_id IS NULL
       )
 
     SELECT
-      product_count,
-      variant_count,
-      variant_missing_parent_id_count,
-      variant_orphan_count
-    FROM product_counts
-    CROSS JOIN variant_counts
-    CROSS JOIN variants_missing_parent_id
-    CROSS JOIN variant_orphans
+      customer_count,
+      duplicate_graphql_id_count,
+      duplicate_legacy_resource_id_count,
+      missing_legacy_resource_id_count
+    FROM customer_counts
+    CROSS JOIN duplicate_graphql_ids
+    CROSS JOIN duplicate_legacy_resource_ids
+    CROSS JOIN missing_legacy_resource_ids
     """
 
     rows = list(client.query(query, location=LOCATION).result())
@@ -558,48 +558,40 @@ def validate_api_landing_tables() -> None:
         raise RuntimeError("Expected exactly one validation result row.")
 
     result = dict(rows[0])
-    print(f"API landing validation result: {result}")
+    print(f"Customers API landing validation result: {result}")
 
-    if result["product_count"] <= 0:
-        raise ValueError("Product landing table has zero rows.")
+    if result["customer_count"] <= 0:
+        raise ValueError("Customer landing table has zero rows.")
 
-    if result["variant_count"] <= 0:
-        raise ValueError("Product variant landing table has zero rows.")
+    if result["duplicate_graphql_id_count"] != 0:
+        raise ValueError("Customer landing table contains duplicate GraphQL IDs.")
 
-    if result["variant_missing_parent_id_count"] != 0:
-        raise ValueError(
-            "Product variant landing table contains variants with missing parent IDs."
-        )
+    if result["duplicate_legacy_resource_id_count"] != 0:
+        raise ValueError("Customer landing table contains duplicate legacy resource IDs.")
 
-    if result["variant_orphan_count"] != 0:
-        raise ValueError(
-            "Product variant landing table contains variants whose parent product "
-            "is missing from the product landing table."
-        )
+    if result["missing_legacy_resource_id_count"] != 0:
+        raise ValueError("Customer landing table contains missing legacy resource IDs.")
 
 
 def write_landing_summary(**context) -> None:
-    product_count = context["ti"].xcom_pull(task_ids="load_products_api_latest")
-    variant_count = context["ti"].xcom_pull(task_ids="load_product_variants_api_latest")
+    customer_count = context["ti"].xcom_pull(task_ids="load_customers_api_latest")
 
-    summary_path = OUTPUT_DIR / "products_api_landing_summary.md"
+    summary_path = OUTPUT_DIR / "customers_api_landing_summary.md"
     lines = [
-        "# Shopify Products API Landing Summary",
+        "# Shopify Customers API Landing Summary",
         "",
         "Generated from Shopify Bulk Operation JSONL output.",
         "",
         "This file is local scratch output and should not be committed.",
         "",
-        "## Landing tables",
+        "## Landing table",
         "",
-        f"- `{PRODUCTS_TABLE}`",
-        f"- `{VARIANTS_TABLE}`",
+        f"- `{CUSTOMERS_TABLE}`",
         "",
         "## Loaded row counts",
         "",
         "```text",
-        f"Product: {product_count}",
-        f"ProductVariant: {variant_count}",
+        f"Customer: {customer_count}",
         "```",
         "",
     ]
@@ -616,51 +608,46 @@ DEFAULT_ARGS = {
 
 
 with DAG(
-    dag_id="mm_shopify_api_products_landing_mvp",
+    dag_id="mm_shopify_api_customers_landing_mvp",
     description=(
-        "Shopify API products Bulk Operation landing MVP. "
-        "Writes isolated product and variant landing tables in raw_load only."
+        "Shopify API customers Bulk Operation landing MVP. "
+        "Writes isolated customer landing table in raw_load only."
     ),
     default_args=DEFAULT_ARGS,
-    start_date=datetime(2026, 4, 28),
+    start_date=datetime(2026, 4, 29),
     schedule=None,
     catchup=False,
     max_active_runs=1,
-    tags=["mischief-made", "shopify", "api", "bigquery", "landing", "mvp"],
+    tags=["mischief-made", "shopify", "api", "bigquery", "customers", "landing", "mvp"],
 ) as dag:
     check_output_dir = PythonOperator(
         task_id="check_landing_output_dir_writeable",
         python_callable=check_landing_output_dir_writeable,
     )
-    
+
     start_bulk = PythonOperator(
-        task_id="start_products_bulk_operation",
-        python_callable=start_products_bulk_operation,
+        task_id="start_customers_bulk_operation",
+        python_callable=start_customers_bulk_operation,
     )
 
     poll_bulk = PythonOperator(
-        task_id="poll_products_bulk_operation",
-        python_callable=poll_products_bulk_operation,
+        task_id="poll_customers_bulk_operation",
+        python_callable=poll_customers_bulk_operation,
     )
 
     download_bulk = PythonOperator(
-        task_id="download_products_bulk_result",
-        python_callable=download_products_bulk_result,
+        task_id="download_customers_bulk_result",
+        python_callable=download_customers_bulk_result,
     )
 
-    load_products = PythonOperator(
-        task_id="load_products_api_latest",
-        python_callable=load_products_api_latest,
-    )
-
-    load_variants = PythonOperator(
-        task_id="load_product_variants_api_latest",
-        python_callable=load_product_variants_api_latest,
+    load_customers = PythonOperator(
+        task_id="load_customers_api_latest",
+        python_callable=load_customers_api_latest,
     )
 
     validate_landing = PythonOperator(
-        task_id="validate_api_landing_tables",
-        python_callable=validate_api_landing_tables,
+        task_id="validate_customers_api_landing_table",
+        python_callable=validate_customers_api_landing_table,
     )
 
     write_summary = PythonOperator(
@@ -669,5 +656,4 @@ with DAG(
     )
 
     check_output_dir >> start_bulk >> poll_bulk >> download_bulk
-    download_bulk >> [load_products, load_variants]
-    [load_products, load_variants] >> validate_landing >> write_summary
+    download_bulk >> load_customers >> validate_landing >> write_summary
