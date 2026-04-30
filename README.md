@@ -53,6 +53,7 @@ Current:
 
 Planned:
 
+- Shopify orders API landing
 - Etsy
 - Faire
 - Etsy Ads
@@ -113,11 +114,12 @@ raw_load.shopify_product_variants_api_latest
 raw_load.shopify_customers_api_latest
 ```
 
-Current reconciliation/validation coverage:
+Current API reconciliation coverage:
 
 - product and variant API landing validation
 - product API-vs-CSV reconciliation
 - customer API landing validation
+- customer API-vs-CSV reconciliation
 
 Current migration path:
 
@@ -205,10 +207,10 @@ Completed:
 - isolated Shopify API product/variant landing tables
 - API-vs-CSV product reconciliation
 - isolated Shopify API customer landing table
+- API-vs-CSV customer reconciliation
 
 Next focus:
 
-- API-vs-CSV customer reconciliation
 - Shopify orders API landing
 - Shopify orders API-vs-CSV reconciliation
 - scheduled Shopify API landing
