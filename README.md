@@ -125,11 +125,12 @@ Current API reconciliation coverage:
 - customer API landing validation
 - customer API-vs-CSV reconciliation
 - order API landing validation
+- order API-vs-CSV reconciliation
 
 Current migration path:
 
 ```text
-Shopify API -> isolated API landing tables -> API-vs-CSV reconciliation -> eventual canonical raw rebuild
+Shopify API -> isolated API landing tables -> API-vs-CSV reconciliation -> scheduled API landing -> eventual canonical raw rebuild
 ```
 
 ## Local development
@@ -209,21 +210,17 @@ Completed:
 - machine-readable validation tasks
 - Shopify Admin API extraction spike
 - Shopify Bulk Operation proof of concept
-- isolated Shopify API product/variant landing tables
-- API-vs-CSV product reconciliation
-- isolated Shopify API customer landing table
-- API-vs-CSV customer reconciliation
-- isolated Shopify API order and line item landing tables
+- isolated Shopify API landing for products, customers, and orders
+- API-vs-CSV reconciliation for products, customers, and orders
 
 Next focus:
 
-- Shopify orders API-vs-CSV reconciliation
 - scheduled Shopify API landing
 - eventual canonical raw rebuild planning
+- BI/dashboarding
 
 ## Roadmap
 
-- Shopify orders API-vs-CSV reconciliation
 - Scheduled Shopify API ingestion
 - Possible canonical raw rebuild from reconciled API data
 - BI/dashboarding
