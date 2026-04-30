@@ -606,7 +606,9 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=2),
 }
 
-
+# Scheduled daily at 20:30 UTC.
+# This DAG lands Shopify API customer data into an isolated raw_load table only.
+# It does not rebuild canonical raw tables or refresh downstream business models.
 with DAG(
     dag_id="mm_shopify_api_customers_landing_mvp",
     description=(
@@ -615,7 +617,7 @@ with DAG(
     ),
     default_args=DEFAULT_ARGS,
     start_date=datetime(2026, 4, 29),
-    schedule=None,
+    schedule="30 20 * * *",
     catchup=False,
     max_active_runs=1,
     tags=["mischief-made", "shopify", "api", "bigquery", "customers", "landing", "mvp"],
