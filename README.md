@@ -49,11 +49,10 @@ Current:
 - Shopify orders CSV export
 - Shopify products CSV export
 - Shopify customers CSV export
-- Shopify Admin API product, variant, and customer landing data
+- Shopify Admin API product, variant, customer, order, and line item landing data
 
 Planned:
 
-- Shopify orders API landing
 - Etsy
 - Faire
 - Etsy Ads
@@ -93,6 +92,7 @@ Current DAGs:
 - `mm_shopify_bulk_operation_spike`
 - `mm_shopify_api_products_landing_mvp`
 - `mm_shopify_api_customers_landing_mvp`
+- `mm_shopify_api_orders_landing_mvp`
 
 The CSV ingestion DAG remains the known-good fallback path.
 
@@ -105,6 +105,8 @@ Working API landing coverage:
 - products
 - product variants
 - customers
+- orders
+- order line items
 
 Current API landing tables:
 
@@ -112,6 +114,8 @@ Current API landing tables:
 raw_load.shopify_products_api_latest
 raw_load.shopify_product_variants_api_latest
 raw_load.shopify_customers_api_latest
+raw_load.shopify_orders_api_latest
+raw_load.shopify_order_line_items_api_latest
 ```
 
 Current API reconciliation coverage:
@@ -120,6 +124,7 @@ Current API reconciliation coverage:
 - product API-vs-CSV reconciliation
 - customer API landing validation
 - customer API-vs-CSV reconciliation
+- order API landing validation
 
 Current migration path:
 
@@ -208,15 +213,17 @@ Completed:
 - API-vs-CSV product reconciliation
 - isolated Shopify API customer landing table
 - API-vs-CSV customer reconciliation
+- isolated Shopify API order and line item landing tables
 
 Next focus:
 
-- Shopify orders API landing
 - Shopify orders API-vs-CSV reconciliation
 - scheduled Shopify API landing
+- eventual canonical raw rebuild planning
 
 ## Roadmap
 
+- Shopify orders API-vs-CSV reconciliation
 - Scheduled Shopify API ingestion
 - Possible canonical raw rebuild from reconciled API data
 - BI/dashboarding
