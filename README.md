@@ -4,8 +4,8 @@ Analytics engineering portfolio project for Mischief Made, an apparel brand.
 
 This project is both:
 
-1. a real business decision-support system for Mischief Made
-2. a flagship portfolio project for an analytics engineering / data engineering career pivot
+1. A real business decision-support system for Mischief Made
+2. A flagship portfolio project for an analytics engineering / data engineering career pivot
 
 The project currently uses Shopify data to model sales, products, customers, and business trends, with a roadmap toward multi-source analytics across Shopify, Etsy, Faire, ads, and BI dashboards.
 
@@ -32,7 +32,7 @@ The project currently uses Shopify data to model sales, products, customers, and
 ## Warehouse structure
 
 - `raw`: canonical raw source tables
-- `raw_load`: temporary source-file and API landing tables
+- `raw_load`: temporary source-file, API landing, and API shadow candidate tables
 - `staging`: cleaned and typed source models
 - `marts`: dimensional models, fact tables, and selected analysis views
 - `sql/analysis`: business-facing analysis SQL
@@ -96,17 +96,17 @@ Current DAGs:
 
 The CSV ingestion DAG remains the known-good fallback path.
 
-The Shopify API path currently lands data into isolated `raw_load` tables and is being reconciled before any canonical raw rebuild changes.
+The Shopify API path currently lands data into isolated `raw_load` tables and is being validated before any canonical raw rebuild changes.
 
 ## Shopify API status
 
 Working scheduled local API landing coverage:
 
-- products
-- product variants
-- customers
-- orders
-- order line items
+- Products
+- Product variants
+- Customers
+- Orders
+- Order line items
 
 Current API landing tables:
 
@@ -120,17 +120,30 @@ raw_load.shopify_order_line_items_api_latest
 
 Current API reconciliation coverage:
 
-- product and variant API landing validation
-- product API-vs-CSV reconciliation
-- customer API landing validation
-- customer API-vs-CSV reconciliation
-- order API landing validation
-- order API-vs-CSV reconciliation
+- Product and variant API landing validation
+- Product API-vs-CSV reconciliation
+- Customer API landing validation
+- Customer API-vs-CSV reconciliation
+- Order API landing validation
+- Order API-vs-CSV reconciliation
+
+Current API shadow raw candidate tables:
+
+```text
+raw_load.shopify_products_api_raw_candidate
+raw_load.shopify_customers_api_raw_candidate
+raw_load.shopify_orders_api_raw_candidate
+```
 
 Current migration path:
 
 ```text
-Shopify API -> isolated API landing tables -> API-vs-CSV reconciliation -> scheduled API landing -> eventual canonical raw rebuild
+Shopify API
+-> isolated API landing tables
+-> API-vs-CSV reconciliation
+-> scheduled API landing
+-> shadow raw candidates
+-> eventual canonical raw rebuild
 ```
 
 ## Local development
@@ -197,27 +210,31 @@ The committed `.env.example` documents expected local environment variables.
 - `fct_order_items` remains at order-item grain
 - Summary-layer models should be BI-friendly and built on validated upstream logic
 - Raw ingestion and canonical raw rebuild are separate concerns
-- API ingestion should remain parallel to CSV ingestion until reconciliation is complete
+- API ingestion should remain parallel to CSV ingestion until validation is complete
+- API-derived shadow raw candidates should be validated before touching canonical raw
 
 ## Current status
 
 Completed:
 
 - Analysis Pack v1
-- dashboard-ready summary layers
+- Dashboard-ready summary layers
 - Dockerized local Airflow orchestration
-- local Shopify CSV ingestion
-- machine-readable validation tasks
+- Local Shopify CSV ingestion
+- Machine-readable validation tasks
 - Shopify Admin API extraction spike
 - Shopify Bulk Operation proof of concept
-- isolated Shopify API landing for products, customers, and orders
+- Isolated Shopify API landing for products, customers, and orders
 - API-vs-CSV reconciliation for products, customers, and orders
-- scheduled local Shopify API landing
+- Scheduled local Shopify API landing
+- Shopify API canonical raw rebuild planning
+- Shopify API shadow raw candidate tables
 
 Next focus:
 
-- canonical raw rebuild planning for reconciled Shopify API data
-- future cloud-hosted scheduling for reliable overnight refreshes
+- Shadow staging comparison for API-derived raw candidates
+- Future canonical raw rebuild from reconciled API data
+- Future cloud-hosted scheduling for reliable overnight refreshes
 - BI/dashboarding
 
 ## Roadmap
@@ -229,5 +246,5 @@ Next focus:
 - Faire integration
 - Etsy Ads integration
 - Pinterest Ads integration
-- cross-channel revenue and marketing analysis
-- eventual migration to dbt + Snowflake
+- Cross-channel revenue and marketing analysis
+- Eventual migration to dbt + Snowflake
