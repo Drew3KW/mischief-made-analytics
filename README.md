@@ -32,7 +32,7 @@ The project currently uses Shopify data to model sales, products, customers, and
 ## Warehouse structure
 
 - `raw`: canonical raw source tables
-- `raw_load`: temporary source-file, API landing, and API shadow candidate tables
+- `raw_load`: temporary source-file, API landing, API shadow candidate, and API shadow staging tables
 - `staging`: cleaned and typed source models
 - `marts`: dimensional models, fact tables, and selected analysis views
 - `sql/analysis`: business-facing analysis SQL
@@ -118,15 +118,6 @@ raw_load.shopify_orders_api_latest
 raw_load.shopify_order_line_items_api_latest
 ```
 
-Current API reconciliation coverage:
-
-- Product and variant API landing validation
-- Product API-vs-CSV reconciliation
-- Customer API landing validation
-- Customer API-vs-CSV reconciliation
-- Order API landing validation
-- Order API-vs-CSV reconciliation
-
 Current API shadow raw candidate tables:
 
 ```text
@@ -134,6 +125,26 @@ raw_load.shopify_products_api_raw_candidate
 raw_load.shopify_customers_api_raw_candidate
 raw_load.shopify_orders_api_raw_candidate
 ```
+
+Current API shadow staging tables:
+
+```text
+raw_load.stg_shopify_products_api_shadow
+raw_load.stg_shopify_customers_api_shadow
+raw_load.stg_shopify_order_items_api_shadow
+raw_load.stg_shopify_orders_api_shadow
+```
+
+Current API validation coverage:
+
+- Product and variant API landing validation
+- Product API-vs-CSV reconciliation
+- Customer API landing validation
+- Customer API-vs-CSV reconciliation
+- Order API landing validation
+- Order API-vs-CSV reconciliation
+- API shadow raw candidate validation
+- API shadow staging comparison
 
 Current migration path:
 
@@ -143,6 +154,7 @@ Shopify API
 -> API-vs-CSV reconciliation
 -> scheduled API landing
 -> shadow raw candidates
+-> shadow staging comparison
 -> eventual canonical raw rebuild
 ```
 
@@ -211,7 +223,7 @@ The committed `.env.example` documents expected local environment variables.
 - Summary-layer models should be BI-friendly and built on validated upstream logic
 - Raw ingestion and canonical raw rebuild are separate concerns
 - API ingestion should remain parallel to CSV ingestion until validation is complete
-- API-derived shadow raw candidates should be validated before touching canonical raw
+- API-derived shadow raw and shadow staging layers should be validated before touching canonical raw
 
 ## Current status
 
@@ -229,10 +241,11 @@ Completed:
 - Scheduled local Shopify API landing
 - Shopify API canonical raw rebuild planning
 - Shopify API shadow raw candidate tables
+- Shopify API shadow staging comparison
 
 Next focus:
 
-- Shadow staging comparison for API-derived raw candidates
+- Canonical raw rebuild design
 - Future canonical raw rebuild from reconciled API data
 - Future cloud-hosted scheduling for reliable overnight refreshes
 - BI/dashboarding
