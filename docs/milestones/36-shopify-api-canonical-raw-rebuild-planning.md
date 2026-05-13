@@ -69,13 +69,13 @@ The plan preserves the current working CSV-derived warehouse while defining the 
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 37 - Shopify API Shadow Raw Candidate Tables
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Create API-derived raw candidate tables in raw_load and validate them against current CSV-derived raw/staging contracts without changing production-facing warehouse models.
