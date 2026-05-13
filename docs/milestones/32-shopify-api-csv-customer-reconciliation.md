@@ -118,13 +118,13 @@ The API customer landing table is compatible enough with the existing CSV-derive
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 33 - Shopify Orders API Landing MVP
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Land Shopify API order data into isolated raw_load tables without modifying canonical raw orders or downstream warehouse logic.
