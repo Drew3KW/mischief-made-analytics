@@ -130,13 +130,13 @@ This supports continuing toward API-based product ingestion while keeping the ex
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 31 - Shopify API Product Rebuild Planning
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Design a safe future path from API landing and reconciliation tables toward canonical raw product rebuild logic, without changing the current production-facing CSV-derived warehouse yet.
