@@ -136,13 +136,13 @@ Shopify API
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 39 - Shopify API Canonical Raw Rebuild Design
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Design the first safe canonical raw rebuild strategy using CSV history before a cutover date and API-derived data after the cutover date, without changing production staging or marts yet.
