@@ -97,13 +97,13 @@ This is the first scheduled Shopify API ingestion layer in the project.
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 36 - Shopify API Canonical Raw Rebuild Planning
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Design a safe future path from reconciled API landing tables toward canonical raw rebuild logic, without replacing the current CSV-derived warehouse yet.
