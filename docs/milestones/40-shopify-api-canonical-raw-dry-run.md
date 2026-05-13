@@ -144,13 +144,11 @@ Shopify API
 
 ## Next step
 
-Recommended next milestone:
-
 ```text
 41 - Shopify API Canonical Raw Replacement MVP
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Manually replace the production Shopify canonical raw tables using validated hybrid raw candidates, with backup tables, validation gates, rollback steps, and no Airflow automation yet.
