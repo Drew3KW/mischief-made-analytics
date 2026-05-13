@@ -143,13 +143,13 @@ Docker Airflow
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 28 - Shopify API Landing MVP
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Write Shopify API-derived products and product variants into isolated BigQuery landing tables without replacing canonical raw tables.
