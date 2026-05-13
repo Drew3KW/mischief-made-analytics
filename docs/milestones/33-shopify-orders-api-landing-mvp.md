@@ -141,13 +141,13 @@ This completes first-pass API landing coverage for the three core Shopify busine
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 34 - Shopify Orders API vs CSV Reconciliation
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Compare recent API-derived order and line item landing data against the existing CSV-derived order warehouse before making any canonical raw rebuild changes.
