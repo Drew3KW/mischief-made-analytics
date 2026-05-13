@@ -126,13 +126,13 @@ The recent API order data reconciles well enough against the CSV-derived warehou
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 35 - Scheduled Shopify API Landing MVP
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Schedule the isolated Shopify API landing DAGs for products, customers, and orders while preserving the CSV ingestion path as fallback.
