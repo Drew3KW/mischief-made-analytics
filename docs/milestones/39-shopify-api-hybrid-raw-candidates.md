@@ -150,13 +150,13 @@ Shopify API
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 40 - Shopify API Canonical Raw Rebuild Dry Run
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Use the hybrid raw candidates to run a safe dry run of the canonical raw rebuild path and compare resulting staging outputs before any production raw replacement is considered.

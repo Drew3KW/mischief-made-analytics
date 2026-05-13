@@ -159,13 +159,13 @@ This moves the project closer to fully automated Shopify API ingestion while pre
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 32 - Shopify Customers API vs CSV Reconciliation
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Compare API-derived customer landing data against the existing CSV-derived customer warehouse before making any canonical raw rebuild changes.

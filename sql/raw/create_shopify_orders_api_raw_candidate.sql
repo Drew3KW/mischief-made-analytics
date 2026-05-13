@@ -71,60 +71,93 @@ SELECT
   orders.order_number AS `Name`,
   line_items.sku AS `Lineitem sku`,
   COALESCE(line_items.line_item_name, line_items.title) AS `Lineitem name`,
-
   COALESCE(NULLIF(TRIM(orders.email), ''), NULLIF(TRIM(orders.customer_email), '')) AS `Email`,
-
   FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%S %z', orders.created_at) AS `Created at`,
   FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%S %z', orders.processed_at) AS `Paid at`,
   CAST(NULL AS STRING) AS `Fulfilled at`,
   FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%S %z', orders.cancelled_at) AS `Cancelled at`,
-
   LOWER(REPLACE(orders.display_financial_status, '_', ' ')) AS `Financial Status`,
   LOWER(REPLACE(orders.display_fulfillment_status, '_', ' ')) AS `Fulfillment Status`,
   LOWER(REPLACE(orders.display_fulfillment_status, '_', ' ')) AS `Lineitem fulfillment status`,
-
   COALESCE(
     orders.currency_code,
     orders.presentment_currency_code,
     orders.money_currency_code
   ) AS `Currency`,
-
   orders.order_source AS `Source`,
   CAST(NULL AS STRING) AS `Risk Level`,
-
   CAST(line_items.quantity AS STRING) AS `Lineitem quantity`,
   line_items.original_unit_price AS `Lineitem price`,
   CAST(NULL AS STRING) AS `Lineitem compare at price`,
   line_items.total_discount AS `Lineitem discount`,
-
   orders.current_subtotal_price AS `Subtotal`,
   orders.current_shipping_price AS `Shipping`,
   orders.current_total_tax AS `Taxes`,
   orders.current_total_price AS `Total`,
   orders.current_total_discounts AS `Discount Amount`,
   orders.total_refunded AS `Refunded Amount`,
-
   line_items.vendor AS `Vendor`,
-
   orders.billing_city AS `Billing City`,
   orders.billing_province_code AS `Billing Province`,
   orders.billing_country_code AS `Billing Country`,
   orders.shipping_city AS `Shipping City`,
   orders.shipping_province_code AS `Shipping Province`,
   orders.shipping_country_code AS `Shipping Country`,
-
   COALESCE(
     ARRAY_TO_STRING(JSON_VALUE_ARRAY(orders.payment_gateway_names_json, '$'), ', '),
     ''
   ) AS `Payment Method`,
-
   orders.shipping_line_title AS `Shipping Method`,
-
   COALESCE(
     ARRAY_TO_STRING(JSON_VALUE_ARRAY(orders.tags_json, '$'), ', '),
     ''
-  ) AS `Tags`
+  ) AS `Tags`,
 
+  -- Legacy CSV export columns not currently populated by API landing.
+  CAST(NULL AS STRING) AS `Accepts Marketing`,
+  CAST(NULL AS STRING) AS `Billing Address1`,
+  CAST(NULL AS STRING) AS `Billing Address2`,
+  CAST(NULL AS STRING) AS `Billing Company`,
+  CAST(NULL AS STRING) AS `Billing Name`,
+  CAST(NULL AS STRING) AS `Billing Phone`,
+  CAST(NULL AS STRING) AS `Billing Province Name`,
+  CAST(NULL AS STRING) AS `Billing Street`,
+  CAST(NULL AS STRING) AS `Billing Zip`,
+  CAST(NULL AS STRING) AS `Device ID`,
+  CAST(NULL AS STRING) AS `Discount Code`,
+  CAST(NULL AS STRING) AS `Duties`,
+  CAST(NULL AS STRING) AS `Employee`,
+  CAST(NULL AS STRING) AS `Lineitem requires shipping`,
+  CAST(NULL AS STRING) AS `Lineitem taxable`,
+  CAST(NULL AS STRING) AS `Location`,
+  CAST(NULL AS STRING) AS `Next Payment Due At`,
+  CAST(NULL AS STRING) AS `Note Attributes`,
+  CAST(NULL AS STRING) AS `Notes`,
+  CAST(NULL AS STRING) AS `Outstanding Balance`,
+  CAST(NULL AS STRING) AS `Payment ID`,
+  CAST(NULL AS STRING) AS `Payment Reference`,
+  CAST(NULL AS STRING) AS `Payment References`,
+  CAST(NULL AS STRING) AS `Payment Terms Name`,
+  CAST(NULL AS STRING) AS `Phone`,
+  CAST(NULL AS STRING) AS `Receipt Number`,
+  CAST(NULL AS STRING) AS `Shipping Address1`,
+  CAST(NULL AS STRING) AS `Shipping Address2`,
+  CAST(NULL AS STRING) AS `Shipping Company`,
+  CAST(NULL AS STRING) AS `Shipping Name`,
+  CAST(NULL AS STRING) AS `Shipping Phone`,
+  CAST(NULL AS STRING) AS `Shipping Province Name`,
+  CAST(NULL AS STRING) AS `Shipping Street`,
+  CAST(NULL AS STRING) AS `Shipping Zip`,
+  CAST(NULL AS STRING) AS `Tax 1 Name`,
+  CAST(NULL AS STRING) AS `Tax 1 Value`,
+  CAST(NULL AS STRING) AS `Tax 2 Name`,
+  CAST(NULL AS STRING) AS `Tax 2 Value`,
+  CAST(NULL AS STRING) AS `Tax 3 Name`,
+  CAST(NULL AS STRING) AS `Tax 3 Value`,
+  CAST(NULL AS STRING) AS `Tax 4 Name`,
+  CAST(NULL AS STRING) AS `Tax 4 Value`,
+  CAST(NULL AS STRING) AS `Tax 5 Name`,
+  CAST(NULL AS STRING) AS `Tax 5 Value`
 FROM line_items
 LEFT JOIN orders
   ON line_items.shopify_order_graphql_id = orders.shopify_order_graphql_id;

@@ -63,6 +63,53 @@ csv_history AS (
     CAST(`Payment Method` AS STRING) AS `Payment Method`,
     CAST(`Shipping Method` AS STRING) AS `Shipping Method`,
     CAST(`Tags` AS STRING) AS `Tags`,
+
+    -- Legacy CSV export columns preserved for canonical raw schema compatibility.
+    CAST(`Accepts Marketing` AS STRING) AS `Accepts Marketing`,
+    CAST(`Billing Address1` AS STRING) AS `Billing Address1`,
+    CAST(`Billing Address2` AS STRING) AS `Billing Address2`,
+    CAST(`Billing Company` AS STRING) AS `Billing Company`,
+    CAST(`Billing Name` AS STRING) AS `Billing Name`,
+    CAST(`Billing Phone` AS STRING) AS `Billing Phone`,
+    CAST(`Billing Province Name` AS STRING) AS `Billing Province Name`,
+    CAST(`Billing Street` AS STRING) AS `Billing Street`,
+    CAST(`Billing Zip` AS STRING) AS `Billing Zip`,
+    CAST(`Device ID` AS STRING) AS `Device ID`,
+    CAST(`Discount Code` AS STRING) AS `Discount Code`,
+    CAST(`Duties` AS STRING) AS `Duties`,
+    CAST(`Employee` AS STRING) AS `Employee`,
+    CAST(`Lineitem requires shipping` AS STRING) AS `Lineitem requires shipping`,
+    CAST(`Lineitem taxable` AS STRING) AS `Lineitem taxable`,
+    CAST(`Location` AS STRING) AS `Location`,
+    CAST(`Next Payment Due At` AS STRING) AS `Next Payment Due At`,
+    CAST(`Note Attributes` AS STRING) AS `Note Attributes`,
+    CAST(`Notes` AS STRING) AS `Notes`,
+    CAST(`Outstanding Balance` AS STRING) AS `Outstanding Balance`,
+    CAST(`Payment ID` AS STRING) AS `Payment ID`,
+    CAST(`Payment Reference` AS STRING) AS `Payment Reference`,
+    CAST(`Payment References` AS STRING) AS `Payment References`,
+    CAST(`Payment Terms Name` AS STRING) AS `Payment Terms Name`,
+    CAST(`Phone` AS STRING) AS `Phone`,
+    CAST(`Receipt Number` AS STRING) AS `Receipt Number`,
+    CAST(`Shipping Address1` AS STRING) AS `Shipping Address1`,
+    CAST(`Shipping Address2` AS STRING) AS `Shipping Address2`,
+    CAST(`Shipping Company` AS STRING) AS `Shipping Company`,
+    CAST(`Shipping Name` AS STRING) AS `Shipping Name`,
+    CAST(`Shipping Phone` AS STRING) AS `Shipping Phone`,
+    CAST(`Shipping Province Name` AS STRING) AS `Shipping Province Name`,
+    CAST(`Shipping Street` AS STRING) AS `Shipping Street`,
+    CAST(`Shipping Zip` AS STRING) AS `Shipping Zip`,
+    CAST(`Tax 1 Name` AS STRING) AS `Tax 1 Name`,
+    CAST(`Tax 1 Value` AS STRING) AS `Tax 1 Value`,
+    CAST(`Tax 2 Name` AS STRING) AS `Tax 2 Name`,
+    CAST(`Tax 2 Value` AS STRING) AS `Tax 2 Value`,
+    CAST(`Tax 3 Name` AS STRING) AS `Tax 3 Name`,
+    CAST(`Tax 3 Value` AS STRING) AS `Tax 3 Value`,
+    CAST(`Tax 4 Name` AS STRING) AS `Tax 4 Name`,
+    CAST(`Tax 4 Value` AS STRING) AS `Tax 4 Value`,
+    CAST(`Tax 5 Name` AS STRING) AS `Tax 5 Name`,
+    CAST(`Tax 5 Value` AS STRING) AS `Tax 5 Value`,
+
     'csv_history_before_cutover' AS _hybrid_source,
     cutover.api_cutover_date AS _api_cutover_date
   FROM `mischief-made-analytics.raw.shopify_orders`
@@ -107,6 +154,53 @@ api_forward AS (
     CAST(`Payment Method` AS STRING) AS `Payment Method`,
     CAST(`Shipping Method` AS STRING) AS `Shipping Method`,
     CAST(`Tags` AS STRING) AS `Tags`,
+
+    -- Legacy CSV export columns preserved as NULL or API candidate values.
+    CAST(`Accepts Marketing` AS STRING) AS `Accepts Marketing`,
+    CAST(`Billing Address1` AS STRING) AS `Billing Address1`,
+    CAST(`Billing Address2` AS STRING) AS `Billing Address2`,
+    CAST(`Billing Company` AS STRING) AS `Billing Company`,
+    CAST(`Billing Name` AS STRING) AS `Billing Name`,
+    CAST(`Billing Phone` AS STRING) AS `Billing Phone`,
+    CAST(`Billing Province Name` AS STRING) AS `Billing Province Name`,
+    CAST(`Billing Street` AS STRING) AS `Billing Street`,
+    CAST(`Billing Zip` AS STRING) AS `Billing Zip`,
+    CAST(`Device ID` AS STRING) AS `Device ID`,
+    CAST(`Discount Code` AS STRING) AS `Discount Code`,
+    CAST(`Duties` AS STRING) AS `Duties`,
+    CAST(`Employee` AS STRING) AS `Employee`,
+    CAST(`Lineitem requires shipping` AS STRING) AS `Lineitem requires shipping`,
+    CAST(`Lineitem taxable` AS STRING) AS `Lineitem taxable`,
+    CAST(`Location` AS STRING) AS `Location`,
+    CAST(`Next Payment Due At` AS STRING) AS `Next Payment Due At`,
+    CAST(`Note Attributes` AS STRING) AS `Note Attributes`,
+    CAST(`Notes` AS STRING) AS `Notes`,
+    CAST(`Outstanding Balance` AS STRING) AS `Outstanding Balance`,
+    CAST(`Payment ID` AS STRING) AS `Payment ID`,
+    CAST(`Payment Reference` AS STRING) AS `Payment Reference`,
+    CAST(`Payment References` AS STRING) AS `Payment References`,
+    CAST(`Payment Terms Name` AS STRING) AS `Payment Terms Name`,
+    CAST(`Phone` AS STRING) AS `Phone`,
+    CAST(`Receipt Number` AS STRING) AS `Receipt Number`,
+    CAST(`Shipping Address1` AS STRING) AS `Shipping Address1`,
+    CAST(`Shipping Address2` AS STRING) AS `Shipping Address2`,
+    CAST(`Shipping Company` AS STRING) AS `Shipping Company`,
+    CAST(`Shipping Name` AS STRING) AS `Shipping Name`,
+    CAST(`Shipping Phone` AS STRING) AS `Shipping Phone`,
+    CAST(`Shipping Province Name` AS STRING) AS `Shipping Province Name`,
+    CAST(`Shipping Street` AS STRING) AS `Shipping Street`,
+    CAST(`Shipping Zip` AS STRING) AS `Shipping Zip`,
+    CAST(`Tax 1 Name` AS STRING) AS `Tax 1 Name`,
+    CAST(`Tax 1 Value` AS STRING) AS `Tax 1 Value`,
+    CAST(`Tax 2 Name` AS STRING) AS `Tax 2 Name`,
+    CAST(`Tax 2 Value` AS STRING) AS `Tax 2 Value`,
+    CAST(`Tax 3 Name` AS STRING) AS `Tax 3 Name`,
+    CAST(`Tax 3 Value` AS STRING) AS `Tax 3 Value`,
+    CAST(`Tax 4 Name` AS STRING) AS `Tax 4 Name`,
+    CAST(`Tax 4 Value` AS STRING) AS `Tax 4 Value`,
+    CAST(`Tax 5 Name` AS STRING) AS `Tax 5 Name`,
+    CAST(`Tax 5 Value` AS STRING) AS `Tax 5 Value`,
+
     'api_forward_on_or_after_cutover' AS _hybrid_source,
     cutover.api_cutover_date AS _api_cutover_date
   FROM `mischief-made-analytics.raw_load.shopify_orders_api_raw_candidate`
@@ -115,13 +209,9 @@ api_forward AS (
 ),
 
 combined AS (
-  SELECT *
-  FROM csv_history
-
+  SELECT * FROM csv_history
   UNION ALL
-
-  SELECT *
-  FROM api_forward
+  SELECT * FROM api_forward
 ),
 
 fingerprinted AS (

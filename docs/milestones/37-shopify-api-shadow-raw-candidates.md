@@ -109,13 +109,13 @@ Shopify API
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 38 - Shopify API Shadow Staging Comparison
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Compare API-derived raw candidates against current staging outputs before deciding whether to update canonical raw rebuild logic.
