@@ -32,7 +32,7 @@ The project currently uses Shopify data to model sales, products, customers, and
 ## Warehouse structure
 
 - `raw`: canonical raw source tables
-- `raw_load`: temporary source-file, API landing, API shadow, hybrid candidate, and dry-run tables
+- `raw_load`: temporary source-file, API landing, API shadow, hybrid candidate, dry-run, and backup tables
 - `staging`: cleaned and typed source models
 - `marts`: dimensional models, fact tables, and selected analysis views
 - `sql/analysis`: business-facing analysis SQL
@@ -49,7 +49,7 @@ Current:
 - Shopify orders CSV export
 - Shopify products CSV export
 - Shopify customers CSV export
-- Shopify Admin API product, variant, customer, order, and line item landing data
+- Shopify Admin API product, variant, customer, order, and line item data
 
 Planned:
 
@@ -94,9 +94,11 @@ Current DAGs:
 - `mm_shopify_api_customers_landing_mvp`
 - `mm_shopify_api_orders_landing_mvp`
 
-The CSV ingestion DAG remains the known-good fallback path.
+The Shopify API landing DAGs pull fresh data from Shopify into isolated `raw_load` API landing tables.
 
-The Shopify API path currently lands data into isolated `raw_load` tables and is being validated before production canonical raw rebuild automation.
+The standard warehouse refresh DAG rebuilds staging, marts, analysis, and validation from the current canonical raw tables.
+
+The CSV ingestion DAG remains the known-good fallback path.
 
 ## Shopify API status
 
@@ -118,21 +120,12 @@ raw_load.shopify_orders_api_latest
 raw_load.shopify_order_line_items_api_latest
 ```
 
-Current API shadow raw candidate tables:
+Current API raw candidate tables:
 
 ```text
 raw_load.shopify_products_api_raw_candidate
 raw_load.shopify_customers_api_raw_candidate
 raw_load.shopify_orders_api_raw_candidate
-```
-
-Current API shadow staging tables:
-
-```text
-raw_load.stg_shopify_products_api_shadow
-raw_load.stg_shopify_customers_api_shadow
-raw_load.stg_shopify_order_items_api_shadow
-raw_load.stg_shopify_orders_api_shadow
 ```
 
 Current hybrid raw candidate tables:
@@ -143,14 +136,17 @@ raw_load.shopify_customers_hybrid_raw_candidate
 raw_load.shopify_orders_hybrid_raw_candidate
 ```
 
-Current hybrid dry-run staging tables:
+Current canonical raw tables now use the validated API-backed hybrid pattern:
 
 ```text
-raw_load.stg_shopify_products_hybrid_dry_run
-raw_load.stg_shopify_customers_hybrid_dry_run
-raw_load.stg_shopify_order_items_hybrid_dry_run
-raw_load.stg_shopify_orders_hybrid_dry_run
+raw.shopify_products
+raw.shopify_customers
+raw.shopify_orders
 ```
+
+For orders, the production canonical raw replacement preserves CSV-derived history before the API cutover date and includes API-forward rows on or after the cutover date.
+
+The legacy Shopify CSV raw orders schema is preserved, with API-unavailable legacy fields populated as `NULL` for API-forward rows.
 
 Current API validation coverage:
 
@@ -164,6 +160,7 @@ Current API validation coverage:
 - API shadow staging comparison
 - Hybrid raw candidate validation
 - Canonical raw rebuild dry-run validation
+- Canonical raw replacement validation
 
 Current migration path:
 
@@ -244,8 +241,9 @@ The committed `.env.example` documents expected local environment variables.
 - `fct_order_items` remains at order-item grain
 - Summary-layer models should be BI-friendly and built on validated upstream logic
 - Raw ingestion and canonical raw rebuild are separate concerns
-- API ingestion should remain parallel to CSV ingestion until validation is complete
-- API-derived shadow raw, shadow staging, hybrid candidate, and dry-run layers should be validated before production canonical raw automation
+- API landing, raw candidate shaping, canonical raw replacement, and warehouse refresh are separate steps
+- CSV ingestion remains available as a fallback path
+- Future canonical raw automation should include validation gates and rollback awareness
 
 ## Current status
 
@@ -266,19 +264,19 @@ Completed:
 - Shopify API shadow staging comparison
 - Shopify API hybrid raw candidate tables
 - Shopify API canonical raw rebuild dry run
+- Shopify API production canonical raw replacement MVP
 
 Next focus:
 
-- Manual production canonical raw replacement MVP
-- Backup and rollback strategy for production raw replacement
-- Post-replacement staging, marts, analysis, and validation refresh
-- Future Airflow integration for canonical API rebuilds
+- Airflow automation for the API-backed canonical raw rebuild path
+- Validation gates for automated canonical raw refresh
+- Rollback-aware operational workflow
 - Future cloud-hosted scheduling for reliable overnight refreshes
 - BI/dashboarding
 
 ## Roadmap
 
-- Production canonical raw replacement from reconciled API data
+- Airflow-controlled Shopify API canonical raw refresh
 - Cloud-hosted scheduled ingestion and refresh
 - BI/dashboarding
 - Etsy integration
