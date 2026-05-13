@@ -121,13 +121,13 @@ This is the first API-derived BigQuery ingestion path in the project.
 
 ## Next step
 
-Recommended next milestone:
+Next milestone:
 
 ```text
 29 - Shopify API vs CSV Product Reconciliation
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Compare API-derived product and variant landing data against the existing CSV-derived product warehouse shape before making any canonical raw rebuild changes.
