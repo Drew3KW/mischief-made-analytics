@@ -614,7 +614,7 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=2),
 }
 
-# Scheduled daily at 21:00 UTC.
+# Scheduled daily at 21:00 UTC.**scheduling set to none to avoid duplicate API landing runs after implementation of canonical refresh mvp
 # This DAG lands Shopify API product and variant data into isolated raw_load tables only.
 # It does not rebuild canonical raw tables or refresh downstream business models.
 with DAG(
@@ -625,7 +625,7 @@ with DAG(
     ),
     default_args=DEFAULT_ARGS,
     start_date=datetime(2026, 4, 28),
-    schedule="0 21 * * *",
+    schedule=None,
     catchup=False,
     max_active_runs=1,
     tags=["mischief-made", "shopify", "api", "bigquery", "landing", "mvp"],
