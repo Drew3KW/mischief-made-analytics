@@ -163,6 +163,11 @@ with DAG(
             task_id="orders_api_raw_candidate",
             sql_relative_path="sql/raw/create_shopify_orders_api_raw_candidate.sql",
         )
+    
+    validate_api_landing_freshness = build_bq_validation_gate_task(
+        task_id="validate_api_landing_freshness_no_failures",
+        validation_sql_relative_path="sql/validation/shopify_api_landing_freshness_validation.sql",
+    )
 
     validate_api_raw_candidates = build_bq_validation_gate_task(
         task_id="validate_api_raw_candidates_no_failures",
@@ -211,7 +216,9 @@ with DAG(
     )
 
     (
+            (
         api_landing
+        >> validate_api_landing_freshness
         >> api_raw_candidates
         >> validate_api_raw_candidates
         >> hybrid_raw_candidates
@@ -220,4 +227,7 @@ with DAG(
         >> replace_canonical_raw
         >> refresh_warehouse
         >> validate_canonical_raw_replacement
+    )
+
+        
     )
