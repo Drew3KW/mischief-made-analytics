@@ -7,7 +7,7 @@ This project is both:
 1. A real business decision-support system for Mischief Made
 2. A flagship portfolio project for an analytics engineering / data engineering career pivot
 
-The project currently uses Shopify data to model sales, products, customers, and business trends, with a roadmap toward multi-source analytics across Shopify, Etsy, Faire, ads, and BI dashboards.
+The project currently uses Shopify data to model sales, products, customers, and business trends, with a roadmap toward Etsy, Faire, ads, BI dashboards, and eventual dbt + Snowflake migration.
 
 ## Goals
 
@@ -32,7 +32,7 @@ The project currently uses Shopify data to model sales, products, customers, and
 ## Warehouse structure
 
 - `raw`: canonical raw source tables
-- `raw_load`: temporary source-file, API landing, API shadow, hybrid candidate, dry-run, and backup tables
+- `raw_load`: temporary source-file, API landing, API shadow, hybrid candidate, backup, and dry-run tables
 - `staging`: cleaned and typed source models
 - `marts`: dimensional models, fact tables, and selected analysis views
 - `sql/analysis`: business-facing analysis SQL
@@ -84,25 +84,48 @@ Business-facing analysis includes product-family performance, customer behavior,
 
 The project uses Docker Compose as the preferred local Airflow runtime.
 
-Current DAGs:
+The primary automated Shopify refresh DAG is:
 
-- `mm_bigquery_refresh_mvp`
-- `mm_shopify_raw_load_and_refresh_mvp`
-- `mm_shopify_api_extract_spike`
-- `mm_shopify_bulk_operation_spike`
-- `mm_shopify_api_products_landing_mvp`
-- `mm_shopify_api_customers_landing_mvp`
-- `mm_shopify_api_orders_landing_mvp`
+```text
+mm_shopify_api_canonical_refresh_mvp
+```
 
-The Shopify API landing DAGs pull fresh data from Shopify into isolated `raw_load` API landing tables.
+This master DAG orchestrates:
 
-The standard warehouse refresh DAG rebuilds staging, marts, analysis, and validation from the current canonical raw tables.
+```text
+Shopify API landing
+-> API raw candidates
+-> API raw candidate validation gate
+-> hybrid raw candidates
+-> hybrid raw candidate validation gate
+-> latest canonical raw backup
+-> canonical raw replacement
+-> warehouse refresh
+-> canonical raw replacement validation gate
+```
+
+Trigger-only helper DAGs:
+
+```text
+mm_shopify_api_orders_landing_mvp
+mm_shopify_api_customers_landing_mvp
+mm_shopify_api_products_landing_mvp
+mm_bigquery_refresh_mvp
+```
+
+Additional DAGs:
+
+```text
+mm_shopify_raw_load_and_refresh_mvp
+mm_shopify_api_extract_spike
+mm_shopify_bulk_operation_spike
+```
 
 The CSV ingestion DAG remains the known-good fallback path.
 
 ## Shopify API status
 
-Working scheduled local API landing coverage:
+Working Shopify API coverage:
 
 - Products
 - Product variants
@@ -136,7 +159,7 @@ raw_load.shopify_customers_hybrid_raw_candidate
 raw_load.shopify_orders_hybrid_raw_candidate
 ```
 
-Current canonical raw tables now use the validated API-backed hybrid pattern:
+Current canonical raw tables use the validated API-backed hybrid pattern:
 
 ```text
 raw.shopify_products
@@ -144,9 +167,17 @@ raw.shopify_customers
 raw.shopify_orders
 ```
 
-For orders, the production canonical raw replacement preserves CSV-derived history before the API cutover date and includes API-forward rows on or after the cutover date.
+For orders, canonical raw preserves CSV-derived history before the API cutover date and includes API-forward rows on or after the cutover date.
 
 The legacy Shopify CSV raw orders schema is preserved, with API-unavailable legacy fields populated as `NULL` for API-forward rows.
+
+Current automated backup tables:
+
+```text
+raw_load.shopify_products_pre_automated_refresh_backup_latest
+raw_load.shopify_customers_pre_automated_refresh_backup_latest
+raw_load.shopify_orders_pre_automated_refresh_backup_latest
+```
 
 Current API validation coverage:
 
@@ -161,6 +192,7 @@ Current API validation coverage:
 - Hybrid raw candidate validation
 - Canonical raw rebuild dry-run validation
 - Canonical raw replacement validation
+- Automated canonical refresh validation gates
 
 Current migration path:
 
@@ -174,7 +206,8 @@ Shopify API
 -> hybrid raw candidates
 -> canonical raw rebuild dry run
 -> production canonical raw replacement MVP
--> future Airflow automation
+-> automated canonical refresh MVP
+-> operational hardening and runbook
 ```
 
 ## Local development
@@ -202,6 +235,12 @@ Check DAG discovery:
 
 ```bash
 docker compose exec airflow-apiserver airflow dags list
+```
+
+Check DAG import errors:
+
+```bash
+docker compose exec airflow-apiserver airflow dags list-import-errors
 ```
 
 Stop Airflow:
@@ -243,7 +282,7 @@ The committed `.env.example` documents expected local environment variables.
 - Raw ingestion and canonical raw rebuild are separate concerns
 - API landing, raw candidate shaping, canonical raw replacement, and warehouse refresh are separate steps
 - CSV ingestion remains available as a fallback path
-- Future canonical raw automation should include validation gates and rollback awareness
+- Automated canonical raw refresh should include validation gates and rollback awareness
 
 ## Current status
 
@@ -265,23 +304,27 @@ Completed:
 - Shopify API hybrid raw candidate tables
 - Shopify API canonical raw rebuild dry run
 - Shopify API production canonical raw replacement MVP
+- Shopify API automated canonical refresh MVP
 
 Next focus:
 
-- Airflow automation for the API-backed canonical raw rebuild path
-- Validation gates for automated canonical raw refresh
-- Rollback-aware operational workflow
-- Future cloud-hosted scheduling for reliable overnight refreshes
-- BI/dashboarding
+- Automated Shopify refresh operations and runbook
+- Freshness checks and failure-handling documentation
+- Etsy source integration spike
+- Etsy orders landing MVP
+- Cross-channel revenue modeling
+- BI/dashboarding after Shopify + Etsy coverage
 
 ## Roadmap
 
-- Airflow-controlled Shopify API canonical raw refresh
+- Automated Shopify refresh operational hardening
+- Etsy source integration spike
+- Etsy orders landing MVP
+- Cross-channel revenue model MVP
+- Business dashboard MVP
 - Cloud-hosted scheduled ingestion and refresh
-- BI/dashboarding
-- Etsy integration
 - Faire integration
 - Etsy Ads integration
 - Pinterest Ads integration
-- Cross-channel revenue and marketing analysis
+- Cross-channel marketing analysis
 - Eventual migration to dbt + Snowflake
