@@ -39,6 +39,7 @@ The project currently uses Shopify data to model sales, products, customers, and
 - `sql/validation`: QA and validation SQL
 - `dags`: Airflow DAGs
 - `docs/milestones`: milestone writeups
+- `docs/operations`: operational runbooks
 - `docs/spikes`: exploratory technical notes
 - `scripts`: local helper scripts
 
@@ -94,14 +95,15 @@ This master DAG orchestrates:
 
 ```text
 Shopify API landing
+-> API landing freshness validation
 -> API raw candidates
--> API raw candidate validation gate
+-> API raw candidate validation
 -> hybrid raw candidates
--> hybrid raw candidate validation gate
+-> hybrid raw candidate validation
 -> latest canonical raw backup
 -> canonical raw replacement
 -> warehouse refresh
--> canonical raw replacement validation gate
+-> canonical raw replacement validation
 ```
 
 Trigger-only helper DAGs:
@@ -122,6 +124,12 @@ mm_shopify_bulk_operation_spike
 ```
 
 The CSV ingestion DAG remains the known-good fallback path.
+
+Operational guidance is documented in:
+
+```text
+docs/operations/shopify_api_canonical_refresh_runbook.md
+```
 
 ## Shopify API status
 
@@ -192,6 +200,7 @@ Current API validation coverage:
 - Hybrid raw candidate validation
 - Canonical raw rebuild dry-run validation
 - Canonical raw replacement validation
+- API landing freshness validation
 - Automated canonical refresh validation gates
 
 Current migration path:
@@ -282,7 +291,7 @@ The committed `.env.example` documents expected local environment variables.
 - Raw ingestion and canonical raw rebuild are separate concerns
 - API landing, raw candidate shaping, canonical raw replacement, and warehouse refresh are separate steps
 - CSV ingestion remains available as a fallback path
-- Automated canonical raw refresh should include validation gates and rollback awareness
+- Automated canonical raw refresh should include freshness checks, validation gates, rollback awareness, and operational documentation
 
 ## Current status
 
@@ -305,11 +314,10 @@ Completed:
 - Shopify API canonical raw rebuild dry run
 - Shopify API production canonical raw replacement MVP
 - Shopify API automated canonical refresh MVP
+- Automated Shopify refresh operations and runbook
 
 Next focus:
 
-- Automated Shopify refresh operations and runbook
-- Freshness checks and failure-handling documentation
 - Etsy source integration spike
 - Etsy orders landing MVP
 - Cross-channel revenue modeling
@@ -317,7 +325,6 @@ Next focus:
 
 ## Roadmap
 
-- Automated Shopify refresh operational hardening
 - Etsy source integration spike
 - Etsy orders landing MVP
 - Cross-channel revenue model MVP
