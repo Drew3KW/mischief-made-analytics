@@ -101,13 +101,12 @@ The project now has a documented refresh flow, a freshness validation gate, and 
 
 ## Next step
 
-Recommended next milestone:
 
 ```text
 44 - Etsy Source Integration Spike
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Explore Etsy data access, authentication, order/transaction endpoints or exports, and field mapping needed for future cross-channel revenue modeling.
