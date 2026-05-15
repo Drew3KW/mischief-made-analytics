@@ -145,13 +145,12 @@ Shopify API
 
 ## Next step
 
-Recommended next milestone:
 
 ```text
 43 - Automated Shopify Refresh Operations and Runbook
 ```
 
-Suggested goal:
+Goal:
 
 ```text
 Harden the automated Shopify refresh workflow with concise operational documentation, freshness checks, failure-handling guidance, and rollback instructions.
