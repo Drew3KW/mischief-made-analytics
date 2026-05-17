@@ -7,14 +7,14 @@ This project is both:
 1. A real business decision-support system for Mischief Made
 2. A flagship portfolio project for an analytics engineering / data engineering career pivot
 
-The project currently uses Shopify data to model sales, products, customers, and business trends, with a roadmap toward Etsy, Faire, ads, BI dashboards, and eventual dbt + Snowflake migration.
+The project currently uses Shopify data to model sales, products, customers, and business trends. Shopify ingestion has evolved from local CSV exports to an API-backed canonical refresh path orchestrated by Airflow. Etsy source integration has now been explored through an isolated API spike, creating the foundation for Etsy landing, cross-channel revenue modeling, BI dashboards, and eventual dbt + Snowflake migration.
 
 ## Goals
 
 - Build a reliable analytics warehouse for Mischief Made
 - Support analysis of revenue, products, customers, and trends
 - Practice production-style analytics engineering workflows
-- Demonstrate SQL, BigQuery, Airflow, Docker, Git, and data modeling skills
+- Demonstrate SQL, BigQuery, Airflow, Docker, Git, API ingestion, validation, and data modeling skills
 - Create a foundation for future dbt + Snowflake migration
 
 ## Stack
@@ -22,7 +22,9 @@ The project currently uses Shopify data to model sales, products, customers, and
 - BigQuery
 - Shopify CSV exports
 - Shopify Admin API
+- Etsy Open API
 - SQL
+- Python
 - Apache Airflow 3
 - Docker Compose
 - WSL / Ubuntu
@@ -45,16 +47,20 @@ The project currently uses Shopify data to model sales, products, customers, and
 
 ## Source systems
 
-Current:
+Current production source coverage:
 
 - Shopify orders CSV export
 - Shopify products CSV export
 - Shopify customers CSV export
 - Shopify Admin API product, variant, customer, order, and line item data
 
+Current exploratory source coverage:
+
+- Etsy Open API receipt, transaction, payment, and ledger samples
+
 Planned:
 
-- Etsy
+- Etsy landing tables
 - Faire
 - Etsy Ads
 - Pinterest Ads
@@ -203,7 +209,7 @@ Current API validation coverage:
 - API landing freshness validation
 - Automated canonical refresh validation gates
 
-Current migration path:
+Current Shopify migration path:
 
 ```text
 Shopify API
@@ -218,6 +224,50 @@ Shopify API
 -> automated canonical refresh MVP
 -> operational hardening and runbook
 ```
+
+## Etsy API status
+
+Etsy source integration has been explored through an isolated local spike.
+
+Completed spike coverage:
+
+- Etsy Open API app approval
+- API key and shared secret connectivity test
+- OAuth authorization flow
+- authenticated shop/user lookup
+- receipt sample retrieval
+- receipt transaction sample retrieval
+- receipt payment sample retrieval
+- ledger entry sample retrieval
+- field inventory generation
+
+Spike documentation:
+
+```text
+docs/spikes/etsy-source-integration-spike.md
+```
+
+Local spike helper:
+
+```text
+scripts/etsy_api_probe.py
+```
+
+Etsy landing table design:
+
+```text
+raw_load.etsy_receipts_api
+raw_load.etsy_receipt_transactions_api
+raw_load.etsy_receipt_payments_api
+```
+
+Reconciliation-oriented table:
+
+```text
+raw_load.etsy_ledger_entries_api
+```
+
+Etsy is not yet wired into production warehouse refreshes.
 
 ## Local development
 
@@ -275,6 +325,7 @@ local_data/shopify/*.csv
 local_data/shopify_api_spike/
 local_data/shopify_bulk_spike/
 local_data/shopify_api_landing/
+local_data/etsy_api_spike/
 logs/
 ```
 
@@ -282,16 +333,18 @@ The committed `.env.example` documents expected local environment variables.
 
 ## Modeling principles
 
-- Trusted dates are the default for business-facing analysis
-- `order_number` is the practical business-facing order key
-- `customer_email` is the practical customer key
-- Shared semantic logic should live upstream in reusable marts models
-- `fct_order_items` remains at order-item grain
-- Summary-layer models should be BI-friendly and built on validated upstream logic
-- Raw ingestion and canonical raw rebuild are separate concerns
-- API landing, raw candidate shaping, canonical raw replacement, and warehouse refresh are separate steps
-- CSV ingestion remains available as a fallback path
-- Automated canonical raw refresh should include freshness checks, validation gates, rollback awareness, and operational documentation
+- Trusted dates are the default for business-facing analysis.
+- `order_number` is the practical business-facing order key.
+- `customer_email` is the practical customer key.
+- Shared semantic logic should live upstream in reusable marts models.
+- `fct_order_items` remains at order-item grain.
+- Summary-layer models should be BI-friendly and built on validated upstream logic.
+- Raw ingestion and canonical raw rebuild are separate concerns.
+- API landing, raw candidate shaping, canonical raw replacement, and warehouse refresh are separate steps.
+- CSV ingestion remains available as a fallback path.
+- Automated canonical raw refresh includes freshness checks, validation gates, rollback awareness, and operational documentation.
+- New source systems begin in isolated landing or spike layers before joining production models.
+- Cross-channel customer and revenue logic remains explicit, validated, and channel-aware.
 
 ## Current status
 
@@ -315,17 +368,16 @@ Completed:
 - Shopify API production canonical raw replacement MVP
 - Shopify API automated canonical refresh MVP
 - Automated Shopify refresh operations and runbook
-
-Next focus:
-
 - Etsy source integration spike
+
+Active roadmap:
+
 - Etsy orders landing MVP
 - Cross-channel revenue modeling
 - BI/dashboarding after Shopify + Etsy coverage
 
 ## Roadmap
 
-- Etsy source integration spike
 - Etsy orders landing MVP
 - Cross-channel revenue model MVP
 - Business dashboard MVP
@@ -335,3 +387,7 @@ Next focus:
 - Pinterest Ads integration
 - Cross-channel marketing analysis
 - Eventual migration to dbt + Snowflake
+
+## About
+
+BigQuery-based analytics engineering project for Mischief Made, building a real warehouse and business analysis layer from Shopify and future multi-channel ecommerce data to support decision-making, portfolio development, BI, dbt, and Snowflake migration.
