@@ -14,7 +14,7 @@ This spike focuses on authentication, available Etsy API and CSV data, expected 
 - Do not create production Etsy staging, marts, or analysis models yet.
 - Do not commit credentials, tokens, or local API output.
 
-## Current recommendation
+## Current Approach
 
 Use an API-first, CSV-aware approach.
 
