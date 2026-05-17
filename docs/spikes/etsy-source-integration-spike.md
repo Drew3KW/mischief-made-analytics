@@ -4,7 +4,7 @@
 
 Explore the safest first path for integrating Etsy into the Mischief Made analytics warehouse.
 
-This spike focuses on authentication, available Etsy API and CSV data, expected raw landing grains, and how Etsy concepts map to the existing Shopify-centered warehouse.
+This spike focused on authentication, available Etsy API and CSV data, expected raw landing grains, and how Etsy concepts map to the existing Shopify-centered warehouse.
 
 ## Non-goals
 
@@ -14,11 +14,11 @@ This spike focuses on authentication, available Etsy API and CSV data, expected 
 - Do not create production Etsy staging, marts, or analysis models yet.
 - Do not commit credentials, tokens, or local API output.
 
-## Current Approach
+## Integration direction
 
-Use an API-first, CSV-aware approach.
+The project will use an API-first, CSV-aware path for Etsy integration.
 
-The Etsy Open API should be the preferred long-term automated ingestion path. Etsy CSV exports may still be useful for historical backfill, manual reconciliation, and validating early API outputs.
+The Etsy Open API is the long-term automated ingestion path. Etsy CSV exports may still be useful for historical backfill, manual reconciliation, and validating early API outputs.
 
 ## Local spike artifacts
 
@@ -36,7 +36,7 @@ This folder is ignored by Git and should not be committed.
 
 ## Required local environment variables
 
-Real values should be stored only in local `.env`.
+Real values are stored only in local `.env`.
 
 ```bash
 ETSY_API_KEYSTRING=your-etsy-api-keystring
@@ -175,7 +175,7 @@ Important observed concepts:
 - `shipments`
 - nested `transactions`
 
-Receipts are the strongest candidate for Etsy order-header landing.
+Receipts are the Etsy order-header landing source.
 
 ### Receipt transactions
 
@@ -209,7 +209,7 @@ Important observed concepts:
 - `shop_coupon`
 - `variations`
 
-Receipt transactions are the strongest candidate for Etsy order-item landing.
+Receipt transactions are the Etsy order-item landing source.
 
 ### Receipt payments
 
@@ -246,7 +246,7 @@ Important observed concepts:
 - `posted_net`
 - `payment_adjustments`
 
-Receipt payments are important for gross, fee, net, and adjustment modeling.
+Receipt payments provide the Etsy payment, fee, net, and adjustment fields needed for later financial modeling.
 
 ### Ledger entries
 
@@ -274,11 +274,11 @@ Important observed concepts:
 - `description`
 - `payment_adjustments`
 
-Ledger entries are useful for payout and accounting reconciliation, but should not be treated as product/order revenue rows in the first cross-channel revenue model.
+Ledger entries support payout and accounting reconciliation. They are not order or product revenue rows.
 
-## Initial landing table recommendation
+## Landing table design
 
-Milestone 45 should start with isolated API landing tables in `raw_load`:
+Milestone 45 will start with isolated API landing tables in `raw_load`:
 
 ```text
 raw_load.etsy_receipts_api
@@ -286,7 +286,7 @@ raw_load.etsy_receipt_transactions_api
 raw_load.etsy_receipt_payments_api
 ```
 
-Ledger entries can be included if simple, but should be treated as optional for the first landing MVP:
+Ledger entries belong in a separate reconciliation-oriented landing table:
 
 ```text
 raw_load.etsy_ledger_entries_api
@@ -311,20 +311,20 @@ raw_load.etsy_ledger_entries_api
 | Fees | not core Shopify revenue model yet | Etsy payment fees |
 | Net revenue | derived downstream | payment net or adjusted net, after validation |
 
-## Important modeling cautions
+## Modeling cautions
 
-- Do not treat ledger entries as order or product revenue rows.
-- Do not choose a final Etsy net revenue definition until receipt totals, payment fields, adjustments, and refunds are reconciled.
-- Do not assume Etsy customer identity will match Shopify customer identity.
-- Use channel-scoped customer keys until cross-channel identity logic is deliberately designed.
-- Preserve raw Etsy API fields in isolated landing tables before applying business semantics downstream.
-- Keep Etsy ingestion separate from the Shopify automated refresh flow until the Etsy landing MVP has been validated.
+- Ledger entries are reconciliation rows, not order or product revenue rows.
+- Etsy net revenue requires validation against receipt totals, payment fields, adjustments, and refunds.
+- Etsy customer identity may not match Shopify customer identity.
+- Channel-scoped customer keys are required until cross-channel identity logic is deliberately designed.
+- Raw Etsy API fields land in isolated landing tables before business semantics are applied downstream.
+- Etsy ingestion remains separate from the Shopify automated refresh flow until landing and validation are proven.
 
-## Recommended next milestone
+## Next milestone
 
-Milestone 45 should build an isolated Etsy Orders Landing MVP.
+Milestone 45 builds an isolated Etsy Orders Landing MVP.
 
-Expected first scope:
+Milestone 45 scope:
 
 - Fetch recent Etsy receipts.
 - Flatten and land receipt/order-header records into `raw_load`.
@@ -333,10 +333,10 @@ Expected first scope:
 - Add lightweight landing validation.
 - Keep all outputs isolated from production `raw`, `staging`, `marts`, and `analysis`.
 
-Future work after Milestone 45:
+Later work:
 
 - Etsy staging models
 - Etsy order and order-item marts
 - Shopify plus Etsy cross-channel revenue model
 - Business dashboard MVP
-- Optional Etsy ledger/payout reconciliation
+- Etsy ledger/payout reconciliation
