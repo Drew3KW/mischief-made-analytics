@@ -315,10 +315,20 @@ The project now supports:
 
 ## Next milestone
 
-Milestone 47 - Business Dashboard MVP
+Milestone 47 - Etsy Historical Backfill MVP
 
 Planned focus:
 
-- Build the first business-facing dashboard layer from the validated cross-channel revenue model.
-- Prioritize daily revenue, channel mix, recent trends, order volume, refunds, and Etsy-vs-Shopify comparison.
-- Keep customer identity and product-family harmonization out of the first dashboard unless explicitly scoped.
+- Backfill Etsy order data to match the trusted Shopify modeling window beginning on 2021-01-31.
+- Extend the Etsy landing script to support explicit historical date ranges.
+- Load Etsy receipts, receipt transactions, and receipt payments across the trusted historical period.
+- Preserve the existing isolated `raw_load` landing pattern.
+- Validate historical Etsy coverage, duplicate keys, required fields, missing payment records, blank SKUs, and date ranges.
+- Rebuild and revalidate the cross-channel revenue model using the expanded Etsy history.
+- Keep customer identity resolution, product-family harmonization, full payout reconciliation, and dashboarding out of scope for this milestone.
+
+This milestone comes before the Business Dashboard MVP because the dashboard should not compare multi-year Shopify history against only 30 days of Etsy data. Historical Etsy coverage is needed for trustworthy cross-channel trends, channel mix, and business-facing revenue reporting.
+
+After the Etsy historical backfill is validated, the next milestone will be:
+
+Milestone 48 - Business Dashboard MVP
