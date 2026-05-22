@@ -7,7 +7,7 @@ This project is both:
 1. A real business decision-support system for Mischief Made
 2. A flagship portfolio project for an analytics engineering / data engineering career pivot
 
-The project currently models Shopify and Etsy sales data in BigQuery. Shopify ingestion has evolved from local CSV exports to an API-backed canonical refresh path orchestrated by Airflow. Etsy ingestion has progressed from API spike to validated landing tables. The warehouse now includes the first validated cross-channel Shopify plus Etsy revenue model.
+The project models Shopify and Etsy sales data in BigQuery. Shopify ingestion has evolved from local CSV exports to an API-backed canonical refresh path orchestrated by Airflow. Etsy ingestion now includes historical receipt and transaction coverage across the trusted Shopify modeling window.
 
 ## Goals
 
@@ -58,24 +58,21 @@ marts     dimensional models, fact tables, and analysis views
 
 ## Source systems
 
-Current production source coverage:
+Current source coverage:
 
 - Shopify orders CSV export
 - Shopify products CSV export
 - Shopify customers CSV export
 - Shopify Admin API product, variant, customer, order, and line item data
-
-Current Etsy source coverage:
-
 - Etsy Open API receipts
 - Etsy Open API receipt transactions
-- Etsy Open API receipt payments
+- partial Etsy Open API receipt payments
 
 Exploratory Etsy coverage:
 
 - Etsy Open API ledger entries
 
-Planned future sources:
+Future sources:
 
 - Faire
 - Etsy Ads
@@ -104,11 +101,9 @@ fct_order_items
 fct_orders
 ```
 
-Business-facing analysis includes product-family performance, customer behavior, cohort retention, RFM segmentation, daily KPIs, monthly summaries, and API-vs-CSV reconciliation outputs.
-
 ## Cross-channel revenue models
 
-The first validated cross-channel revenue layer combines mature Shopify order facts with Etsy receipt/payment landing data.
+The first validated cross-channel revenue layer combines mature Shopify order facts with Etsy receipt and payment landing data.
 
 Cross-channel mart:
 
@@ -143,8 +138,8 @@ The model supports:
 - all-channel daily revenue totals
 - side-by-side Shopify/Etsy daily comparison
 - refund-aware net revenue
-- Etsy fee visibility
-- Etsy edge-case flags
+- partial Etsy fee visibility
+- Etsy payment-enrichment edge-case flags
 
 The model does not yet perform:
 
@@ -163,103 +158,25 @@ Primary automated Shopify refresh DAG:
 mm_shopify_api_canonical_refresh_mvp
 ```
 
-This master DAG orchestrates:
+Primary Etsy historical backfill DAG:
 
 ```text
-Shopify API landing
--> API landing freshness validation
--> API raw candidates
--> API raw candidate validation
--> hybrid raw candidates
--> hybrid raw candidate validation
--> latest canonical raw backup
--> canonical raw replacement
--> warehouse refresh
--> canonical raw replacement validation
+mm_etsy_historical_backfill_mvp
 ```
 
-Trigger-only helper DAGs:
+The Shopify master DAG orchestrates API landing, validation, canonical raw replacement, warehouse refresh, and replacement validation.
 
-```text
-mm_shopify_api_orders_landing_mvp
-mm_shopify_api_customers_landing_mvp
-mm_shopify_api_products_landing_mvp
-mm_bigquery_refresh_mvp
-```
+The Etsy historical backfill DAG uses a BigQuery state table to process historical receipt/transaction chunks until the backfill is complete or Etsy returns a rate limit.
 
-Additional DAGs:
-
-```text
-mm_shopify_raw_load_and_refresh_mvp
-mm_shopify_api_extract_spike
-mm_shopify_bulk_operation_spike
-```
-
-The CSV ingestion DAG remains the known-good Shopify fallback path.
-
-Operational guidance:
+Operational Shopify guidance:
 
 ```text
 docs/operations/shopify_api_canonical_refresh_runbook.md
 ```
 
-Etsy landing currently runs through a local Python script and is not yet wired into Airflow.
+## Etsy status
 
-## Shopify API status
-
-Working Shopify API coverage:
-
-- Products
-- Product variants
-- Customers
-- Orders
-- Order line items
-
-Current Shopify API landing tables:
-
-```text
-raw_load.shopify_products_api_latest
-raw_load.shopify_product_variants_api_latest
-raw_load.shopify_customers_api_latest
-raw_load.shopify_orders_api_latest
-raw_load.shopify_order_line_items_api_latest
-```
-
-Current canonical raw Shopify tables use the validated API-backed hybrid pattern:
-
-```text
-raw.shopify_products
-raw.shopify_customers
-raw.shopify_orders
-```
-
-For orders, canonical raw preserves CSV-derived history before the API cutover date and includes API-forward rows on or after the cutover date.
-
-The legacy Shopify CSV raw orders schema is preserved, with API-unavailable legacy fields populated as `NULL` for API-forward rows.
-
-Current automated backup tables:
-
-```text
-raw_load.shopify_products_pre_automated_refresh_backup_latest
-raw_load.shopify_customers_pre_automated_refresh_backup_latest
-raw_load.shopify_orders_pre_automated_refresh_backup_latest
-```
-
-Current Shopify validation coverage includes:
-
-- API landing validation
-- API-vs-CSV reconciliation
-- API shadow raw candidate validation
-- API shadow staging comparison
-- Hybrid raw candidate validation
-- Canonical raw dry-run validation
-- Canonical raw replacement validation
-- API landing freshness validation
-- Automated refresh validation gates
-
-## Etsy API status
-
-Completed Etsy spike coverage:
+Completed Etsy work:
 
 - Etsy Open API app approval
 - API key and shared secret connectivity test
@@ -270,30 +187,20 @@ Completed Etsy spike coverage:
 - receipt payment sample retrieval
 - ledger entry sample retrieval
 - field inventory generation
+- recent Etsy landing MVP
+- historical Etsy receipt/transaction backfill automation
+- promotion of historical backfill candidates to latest landing tables
 
-Spike documentation:
-
-```text
-docs/spikes/etsy-source-integration-spike.md
-```
-
-Local spike helper:
-
-```text
-scripts/etsy_api_probe.py
-```
-
-Completed Etsy landing coverage:
-
-- receipt/order-header landing
-- receipt transaction/order-item landing
-- receipt payment landing
-- landing-level validation
-
-Landing script:
+Etsy landing script:
 
 ```text
 scripts/etsy_orders_landing.py
+```
+
+Etsy state table:
+
+```text
+raw_load.etsy_historical_backfill_chunks
 ```
 
 Current Etsy landing tables:
@@ -304,26 +211,15 @@ raw_load.etsy_receipt_transactions_api_latest
 raw_load.etsy_receipt_payments_api_latest
 ```
 
-Landing validation:
+Current Etsy historical coverage:
 
 ```text
-sql/validation/etsy_orders_landing_validation.sql
+receipts:     16,496 rows, 2021-01-31 to 2026-05-20
+transactions: 23,422 rows, 2021-01-31 to 2026-05-20
+payments:        273 rows, 2021-01-31 to 2021-03-01
 ```
 
-Validated landing result:
-
-```text
-receipts=173
-transactions=254
-payments=169
-FAIL=0
-```
-
-Known Etsy landing edge cases:
-
-- 4 receipts did not return payment records from the receipt-payment endpoint.
-- 1 receipt transaction had a blank SKU.
-- These edge cases are tracked as review items at landing and carried forward where relevant.
+Payment history is partial and will be enriched separately.
 
 ## Local development
 
@@ -364,12 +260,6 @@ Stop Airflow:
 docker compose down
 ```
 
-Remove stale containers if needed:
-
-```bash
-docker compose down --remove-orphans
-```
-
 Run Etsy orders landing locally:
 
 ```bash
@@ -402,7 +292,6 @@ The committed `.env.example` documents expected local environment variables.
 - Etsy order-item identity starts from `transaction_id`.
 - Cross-channel models use channel-aware keys.
 - Shared semantic logic lives upstream in reusable marts models.
-- `fct_order_items` remains at order-item grain.
 - Summary-layer models are BI-friendly and built on validated upstream logic.
 - Raw ingestion and canonical raw rebuild are separate concerns.
 - New source systems begin in isolated landing or spike layers before joining production models.
@@ -419,27 +308,24 @@ Completed:
 - Shopify Admin API extraction spike
 - Shopify Bulk Operation proof of concept
 - Isolated Shopify API landing for products, customers, and orders
-- API-vs-CSV reconciliation for products, customers, and orders
-- Scheduled local Shopify API landing
-- Shopify API shadow raw candidates and staging comparison
+- Shopify API-vs-CSV reconciliation
 - Shopify API hybrid raw candidates
-- Shopify API canonical raw rebuild dry run
 - Shopify API production canonical raw replacement MVP
 - Shopify API automated canonical refresh MVP
 - Automated Shopify refresh operations and runbook
 - Etsy source integration spike
 - Etsy orders landing MVP
 - Cross-channel revenue model MVP
+- Etsy historical receipts and transactions backfill
 
 Next focus:
 
-- Etsy Historical Backfill MVP
+- Etsy historical payments enrichment
 
 ## Roadmap
 
-- Etsy historical backfill
+- Etsy historical payments enrichment
 - Business Dashboard MVP
-- Etsy Airflow orchestration
 - Etsy staging and marts
 - Cross-channel customer modeling
 - Cross-channel product and product-family harmonization
@@ -447,7 +333,6 @@ Next focus:
 - Faire integration
 - Etsy Ads integration
 - Pinterest Ads integration
-- Cross-channel marketing analysis
 - Eventual migration to dbt + Snowflake
 
 ## About

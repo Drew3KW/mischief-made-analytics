@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta, time as datetime_time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -26,9 +26,13 @@ OAUTH_TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 DEFAULT_PROJECT_ID = "mischief-made-analytics"
 DEFAULT_DATASET = "raw_load"
 
-RECEIPTS_TABLE = "etsy_receipts_api_latest"
-TRANSACTIONS_TABLE = "etsy_receipt_transactions_api_latest"
-PAYMENTS_TABLE = "etsy_receipt_payments_api_latest"
+RECEIPTS_TABLE_BASE = "etsy_receipts_api"
+TRANSACTIONS_TABLE_BASE = "etsy_receipt_transactions_api"
+PAYMENTS_TABLE_BASE = "etsy_receipt_payments_api"
+
+
+class RateLimitError(RuntimeError):
+    pass
 
 
 def load_local_env() -> None:
@@ -131,6 +135,10 @@ def request_json(
 
     except urllib.error.HTTPError as error:
         error_body = error.read().decode("utf-8")
+
+        if error.code == 429:
+            raise RateLimitError(f"HTTP 429 Too Many Requests: {error_body}") from error
+
         raise RuntimeError(f"HTTP {error.code} {error.reason}: {error_body}") from error
 
 
@@ -226,14 +234,79 @@ def unix_range_for_days(days: int) -> tuple[int, int]:
     return min_created, max_created
 
 
+def unix_range_for_dates(start_date: str, end_date: str) -> tuple[int, int]:
+    # Etsy expects Unix timestamps.
+    # The end date is treated as inclusive through 23:59:59 UTC.
+    start = date.fromisoformat(start_date)
+    end = date.fromisoformat(end_date)
+
+    if end < start:
+        raise ValueError("end-date must be greater than or equal to start-date.")
+
+    start_dt = datetime.combine(start, datetime_time.min, tzinfo=UTC)
+    end_dt = datetime.combine(end, datetime_time.max, tzinfo=UTC)
+
+    return int(start_dt.timestamp()), int(end_dt.timestamp())
+
+
+def get_receipt_timestamp_range(args: argparse.Namespace) -> tuple[int, int]:
+    if args.start_date or args.end_date:
+        if not args.start_date or not args.end_date:
+            raise ValueError("Use both --start-date and --end-date, or use neither.")
+
+        return unix_range_for_dates(args.start_date, args.end_date)
+
+    return unix_range_for_days(args.days)
+
+
+def build_date_chunks(
+    start_date: str | None,
+    end_date: str | None,
+    chunk_days: int | None,
+) -> list[tuple[str | None, str | None]]:
+    if not chunk_days:
+        return [(start_date, end_date)]
+
+    if not start_date or not end_date:
+        raise ValueError("--chunk-days requires --start-date and --end-date.")
+
+    if chunk_days < 1:
+        raise ValueError("--chunk-days must be greater than 0.")
+
+    start = date.fromisoformat(start_date)
+    end = date.fromisoformat(end_date)
+
+    if end < start:
+        raise ValueError("end-date must be greater than or equal to start-date.")
+
+    chunks: list[tuple[str | None, str | None]] = []
+    chunk_start = start
+
+    while chunk_start <= end:
+        chunk_end = min(chunk_start + timedelta(days=chunk_days - 1), end)
+        chunks.append((chunk_start.isoformat(), chunk_end.isoformat()))
+        chunk_start = chunk_end + timedelta(days=1)
+
+    return chunks
+
+
+def table_name(base_name: str, suffix: str) -> str:
+    clean_suffix = suffix.strip().strip("_")
+
+    if not clean_suffix:
+        raise ValueError("table suffix cannot be blank.")
+
+    return f"{base_name}_{clean_suffix}"
+
+
 def fetch_receipts(
     access_token: str,
     shop_id: str,
-    days: int,
+    min_created: int,
+    max_created: int,
     limit: int,
     max_pages: int,
 ) -> list[dict[str, Any]]:
-    min_created, max_created = unix_range_for_days(days)
     receipts: list[dict[str, Any]] = []
 
     for page_number in range(max_pages):
@@ -278,7 +351,7 @@ def fetch_payment_rows(
     receipt_ids: list[int],
     run_id: str,
     loaded_at: str,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[int]]:
     payment_rows: list[dict[str, Any]] = []
     skipped_receipt_ids: list[int] = []
 
@@ -305,13 +378,7 @@ def fetch_payment_rows(
         for payment in payload.get("results", []):
             payment_rows.append(build_payment_row(payment, run_id, loaded_at))
 
-    if skipped_receipt_ids:
-        print(
-            "Skipped payment fetches for "
-            f"{len(skipped_receipt_ids)} receipt_id values."
-        )
-
-    return payment_rows
+    return payment_rows, skipped_receipt_ids
 
 
 def build_receipt_row(
@@ -613,23 +680,56 @@ def ensure_dataset(client: bigquery.Client, project_id: str, dataset_name: str) 
     client.create_dataset(dataset, exists_ok=True)
 
 
-def replace_table(
+def create_or_replace_empty_table(
     client: bigquery.Client,
     project_id: str,
     dataset_name: str,
-    table_name: str,
-    rows: list[dict[str, Any]],
+    table_name_value: str,
     schema: list[bigquery.SchemaField],
 ) -> None:
-    table_id = f"{project_id}.{dataset_name}.{table_name}"
+    table_id = f"{project_id}.{dataset_name}.{table_name_value}"
 
     client.delete_table(table_id, not_found_ok=True)
 
     table = bigquery.Table(table_id, schema=schema)
     client.create_table(table)
 
+    print(f"Created empty table: {table_id}")
+
+
+def ensure_table_exists(
+    client: bigquery.Client,
+    project_id: str,
+    dataset_name: str,
+    table_name_value: str,
+    schema: list[bigquery.SchemaField],
+) -> None:
+    table_id = f"{project_id}.{dataset_name}.{table_name_value}"
+    table = bigquery.Table(table_id, schema=schema)
+
+    client.create_table(table, exists_ok=True)
+
+
+def append_rows(
+    client: bigquery.Client,
+    project_id: str,
+    dataset_name: str,
+    table_name_value: str,
+    rows: list[dict[str, Any]],
+    schema: list[bigquery.SchemaField],
+) -> None:
+    table_id = f"{project_id}.{dataset_name}.{table_name_value}"
+
+    ensure_table_exists(
+        client=client,
+        project_id=project_id,
+        dataset_name=dataset_name,
+        table_name_value=table_name_value,
+        schema=schema,
+    )
+
     if not rows:
-        print(f"Created empty table: {table_id}")
+        print(f"No rows to append to {table_id}")
         return
 
     job_config = bigquery.LoadJobConfig(
@@ -645,8 +745,7 @@ def replace_table(
     )
     load_job.result()
 
-    destination = client.get_table(table_id)
-    print(f"Loaded {destination.num_rows} rows into {table_id}")
+    print(f"Appended {len(rows)} rows to {table_id}")
 
 
 def build_transaction_rows_from_receipts(
@@ -672,6 +771,112 @@ def build_transaction_rows_from_receipts(
     return rows
 
 
+def process_chunk(
+    client: bigquery.Client,
+    access_token: str,
+    shop_id: str,
+    args: argparse.Namespace,
+    chunk_start: str | None,
+    chunk_end: str | None,
+    receipt_table: str,
+    transaction_table: str,
+    payment_table: str,
+) -> tuple[int, int, int, int]:
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    loaded_at = now_timestamp()
+
+    if chunk_start and chunk_end:
+        min_created, max_created = unix_range_for_dates(chunk_start, chunk_end)
+        print("")
+        print(f"Processing chunk: {chunk_start} to {chunk_end}")
+    else:
+        min_created, max_created = get_receipt_timestamp_range(args)
+        print("")
+        print(f"Processing chunk: last {args.days} days")
+
+    receipts = fetch_receipts(
+        access_token=access_token,
+        shop_id=shop_id,
+        min_created=min_created,
+        max_created=max_created,
+        limit=args.limit,
+        max_pages=args.max_pages,
+    )
+
+    receipt_rows = [
+        build_receipt_row(receipt, run_id, loaded_at)
+        for receipt in receipts
+    ]
+
+    transaction_rows = build_transaction_rows_from_receipts(
+        receipts=receipts,
+        run_id=run_id,
+        loaded_at=loaded_at,
+    )
+
+    receipt_ids = [
+        receipt.get("receipt_id")
+        for receipt in receipts
+        if receipt.get("receipt_id") is not None
+    ]
+
+    payment_rows: list[dict[str, Any]] = []
+    skipped_receipt_ids: list[int] = []
+
+    if not args.skip_payments:
+        payment_rows, skipped_receipt_ids = fetch_payment_rows(
+            access_token=access_token,
+            shop_id=shop_id,
+            receipt_ids=receipt_ids,
+            run_id=run_id,
+            loaded_at=loaded_at,
+        )
+
+    print(f"Fetched receipts: {len(receipt_rows)}")
+    print(f"Flattened transactions: {len(transaction_rows)}")
+    print(f"Fetched payments: {len(payment_rows)}")
+    print(f"Skipped payment fetches: {len(skipped_receipt_ids)}")
+
+    append_rows(
+        client=client,
+        project_id=args.project_id,
+        dataset_name=args.dataset,
+        table_name_value=receipt_table,
+        rows=receipt_rows,
+        schema=receipt_schema(),
+    )
+
+    append_rows(
+        client=client,
+        project_id=args.project_id,
+        dataset_name=args.dataset,
+        table_name_value=transaction_table,
+        rows=transaction_rows,
+        schema=transaction_schema(),
+    )
+
+    append_rows(
+        client=client,
+        project_id=args.project_id,
+        dataset_name=args.dataset,
+        table_name_value=payment_table,
+        rows=payment_rows,
+        schema=payment_schema(),
+    )
+
+    if chunk_start and chunk_end:
+        print(f"Completed chunk: {chunk_start} to {chunk_end}")
+        print(f"Resume after this chunk with --start-date {next_date(chunk_end)} if needed.")
+    else:
+        print(f"Completed chunk: last {args.days} days")
+
+    return len(receipt_rows), len(transaction_rows), len(payment_rows), len(skipped_receipt_ids)
+
+
+def next_date(date_string: str) -> str:
+    return (date.fromisoformat(date_string) + timedelta(days=1)).isoformat()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Land Etsy receipt, transaction, and payment data into BigQuery raw_load."
@@ -681,7 +886,31 @@ def parse_args() -> argparse.Namespace:
         "--days",
         type=int,
         default=30,
-        help="Number of recent days to fetch from Etsy.",
+        help="Number of recent days to fetch from Etsy when explicit dates are not provided.",
+    )
+    parser.add_argument(
+        "--start-date",
+        help="Historical backfill start date in YYYY-MM-DD format.",
+    )
+    parser.add_argument(
+        "--end-date",
+        help="Historical backfill end date in YYYY-MM-DD format.",
+    )
+    parser.add_argument(
+        "--chunk-days",
+        type=int,
+        help="Split an explicit date range into chunks of this many days.",
+    )
+    parser.add_argument(
+        "--table-suffix",
+        default="latest",
+        help="Suffix for landing tables, such as latest or backfill_candidate.",
+    )
+    parser.add_argument(
+        "--write-mode",
+        choices=["replace", "append"],
+        default="replace",
+        help="replace clears target tables before loading; append adds to existing tables.",
     )
     parser.add_argument(
         "--limit",
@@ -693,7 +922,7 @@ def parse_args() -> argparse.Namespace:
         "--max-pages",
         type=int,
         default=10,
-        help="Maximum number of Etsy receipt pages to fetch.",
+        help="Maximum number of Etsy receipt pages to fetch per chunk.",
     )
     parser.add_argument(
         "--project-id",
@@ -724,55 +953,25 @@ def main() -> None:
 
     shop_id = require_env("ETSY_SHOP_ID")
 
-    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    loaded_at = now_timestamp()
+    receipt_table = table_name(RECEIPTS_TABLE_BASE, args.table_suffix)
+    transaction_table = table_name(TRANSACTIONS_TABLE_BASE, args.table_suffix)
+    payment_table = table_name(PAYMENTS_TABLE_BASE, args.table_suffix)
 
-    print(f"Starting Etsy orders landing run: {run_id}")
+    print("Starting Etsy orders landing run")
     print(f"Project: {args.project_id}")
     print(f"Dataset: {args.dataset}")
-    print(f"Lookback days: {args.days}")
+    print(f"Write mode: {args.write_mode}")
+    print(f"Receipt table: {args.dataset}.{receipt_table}")
+    print(f"Transaction table: {args.dataset}.{transaction_table}")
+    print(f"Payment table: {args.dataset}.{payment_table}")
 
-    access_token = refresh_access_token()
+    if args.start_date and args.end_date:
+        print(f"Date range: {args.start_date} to {args.end_date}")
+    else:
+        print(f"Lookback days: {args.days}")
 
-    receipts = fetch_receipts(
-        access_token=access_token,
-        shop_id=shop_id,
-        days=args.days,
-        limit=args.limit,
-        max_pages=args.max_pages,
-    )
-
-    receipt_rows = [
-        build_receipt_row(receipt, run_id, loaded_at)
-        for receipt in receipts
-    ]
-
-    transaction_rows = build_transaction_rows_from_receipts(
-        receipts=receipts,
-        run_id=run_id,
-        loaded_at=loaded_at,
-    )
-
-    receipt_ids = [
-        receipt.get("receipt_id")
-        for receipt in receipts
-        if receipt.get("receipt_id") is not None
-    ]
-
-    payment_rows: list[dict[str, Any]] = []
-
-    if not args.skip_payments:
-        payment_rows = fetch_payment_rows(
-            access_token=access_token,
-            shop_id=shop_id,
-            receipt_ids=receipt_ids,
-            run_id=run_id,
-            loaded_at=loaded_at,
-        )
-
-    print(f"Fetched receipts: {len(receipt_rows)}")
-    print(f"Flattened transactions: {len(transaction_rows)}")
-    print(f"Fetched payments: {len(payment_rows)}")
+    if args.chunk_days:
+        print(f"Chunk days: {args.chunk_days}")
 
     client = bigquery.Client(project=args.project_id)
 
@@ -782,34 +981,113 @@ def main() -> None:
         dataset_name=args.dataset,
     )
 
-    replace_table(
-        client=client,
-        project_id=args.project_id,
-        dataset_name=args.dataset,
-        table_name=RECEIPTS_TABLE,
-        rows=receipt_rows,
-        schema=receipt_schema(),
+    if args.write_mode == "replace":
+        create_or_replace_empty_table(
+            client=client,
+            project_id=args.project_id,
+            dataset_name=args.dataset,
+            table_name_value=receipt_table,
+            schema=receipt_schema(),
+        )
+        create_or_replace_empty_table(
+            client=client,
+            project_id=args.project_id,
+            dataset_name=args.dataset,
+            table_name_value=transaction_table,
+            schema=transaction_schema(),
+        )
+        create_or_replace_empty_table(
+            client=client,
+            project_id=args.project_id,
+            dataset_name=args.dataset,
+            table_name_value=payment_table,
+            schema=payment_schema(),
+        )
+
+    else:
+        ensure_table_exists(
+            client=client,
+            project_id=args.project_id,
+            dataset_name=args.dataset,
+            table_name_value=receipt_table,
+            schema=receipt_schema(),
+        )
+        ensure_table_exists(
+            client=client,
+            project_id=args.project_id,
+            dataset_name=args.dataset,
+            table_name_value=transaction_table,
+            schema=transaction_schema(),
+        )
+        ensure_table_exists(
+            client=client,
+            project_id=args.project_id,
+            dataset_name=args.dataset,
+            table_name_value=payment_table,
+            schema=payment_schema(),
+        )
+
+    access_token = refresh_access_token()
+
+    chunks = build_date_chunks(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        chunk_days=args.chunk_days,
     )
 
-    replace_table(
-        client=client,
-        project_id=args.project_id,
-        dataset_name=args.dataset,
-        table_name=TRANSACTIONS_TABLE,
-        rows=transaction_rows,
-        schema=transaction_schema(),
-    )
+    total_receipts = 0
+    total_transactions = 0
+    total_payments = 0
+    total_skipped_payments = 0
+    last_completed_chunk_end: str | None = None
 
-    replace_table(
-        client=client,
-        project_id=args.project_id,
-        dataset_name=args.dataset,
-        table_name=PAYMENTS_TABLE,
-        rows=payment_rows,
-        schema=payment_schema(),
-    )
+    try:
+        for chunk_start, chunk_end in chunks:
+            receipt_count, transaction_count, payment_count, skipped_payment_count = process_chunk(
+                client=client,
+                access_token=access_token,
+                shop_id=shop_id,
+                args=args,
+                chunk_start=chunk_start,
+                chunk_end=chunk_end,
+                receipt_table=receipt_table,
+                transaction_table=transaction_table,
+                payment_table=payment_table,
+            )
 
+            total_receipts += receipt_count
+            total_transactions += transaction_count
+            total_payments += payment_count
+            total_skipped_payments += skipped_payment_count
+
+            if chunk_end:
+                last_completed_chunk_end = chunk_end
+
+    except RateLimitError as error:
+        print("")
+        print("Rate limit reached. The current run stopped before completing all chunks.")
+        print(str(error))
+
+        if last_completed_chunk_end:
+            print(f"Last completed chunk ended on: {last_completed_chunk_end}")
+            print(f"Resume with --start-date {next_date(last_completed_chunk_end)}")
+        else:
+            print("No chunk completed in this run.")
+
+        print("")
+        print("Rows loaded before rate limit:")
+        print(f"Receipts: {total_receipts}")
+        print(f"Transactions: {total_transactions}")
+        print(f"Payments: {total_payments}")
+        print(f"Skipped payment fetches: {total_skipped_payments}")
+        sys.exit(2)
+
+    print("")
     print("Etsy orders landing run completed successfully.")
+    print(f"Total receipts loaded: {total_receipts}")
+    print(f"Total transactions loaded: {total_transactions}")
+    print(f"Total payments loaded: {total_payments}")
+    print(f"Total skipped payment fetches: {total_skipped_payments}")
 
 
 if __name__ == "__main__":
