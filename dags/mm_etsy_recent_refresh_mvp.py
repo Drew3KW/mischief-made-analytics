@@ -203,19 +203,51 @@ with DAG(
         sql_relative_path="sql/analysis/cross_channel_revenue_daily_pivot.sql",
     )
 
+    anl_dashboard_revenue_daily = build_bq_sql_task(
+        task_id="anl_dashboard_revenue_daily",
+        sql_relative_path="sql/analysis/dashboard_revenue_daily.sql",
+    )
+
+    anl_dashboard_revenue_monthly = build_bq_sql_task(
+        task_id="anl_dashboard_revenue_monthly",
+        sql_relative_path="sql/analysis/dashboard_revenue_monthly.sql",
+    )
+
+    anl_dashboard_channel_daily = build_bq_sql_task(
+        task_id="anl_dashboard_channel_daily",
+        sql_relative_path="sql/analysis/dashboard_channel_daily.sql",
+    )
+
     validate_cross_channel_revenue = build_bq_validation_gate_task(
         task_id="validate_cross_channel_revenue_no_failures",
         validation_sql_relative_path="sql/validation/cross_channel_revenue_validation.sql",
     )
 
-    (
-        run_etsy_recent_landing()
-        >> promote_recent_catchup
-        >> validate_etsy_landing
-        >> fct_cross_channel_orders
-        >> [
-            cross_channel_revenue_daily,
-            cross_channel_revenue_daily_pivot,
-        ]
-        >> validate_cross_channel_revenue
+    validate_dashboard_mvp = build_bq_validation_gate_task(
+        task_id="validate_dashboard_mvp_no_failures",
+        validation_sql_relative_path="sql/validation/dashboard_mvp_validation.sql",
     )
+
+    etsy_recent_landing = run_etsy_recent_landing()
+
+    etsy_recent_landing >> promote_recent_catchup >> validate_etsy_landing >> fct_cross_channel_orders
+
+    fct_cross_channel_orders >> [
+        cross_channel_revenue_daily,
+        cross_channel_revenue_daily_pivot,
+        anl_dashboard_revenue_daily,
+        anl_dashboard_channel_daily,
+    ]
+
+    anl_dashboard_revenue_daily >> anl_dashboard_revenue_monthly
+
+    [
+        cross_channel_revenue_daily,
+        cross_channel_revenue_daily_pivot,
+    ] >> validate_cross_channel_revenue
+
+    [
+        anl_dashboard_revenue_monthly,
+        anl_dashboard_channel_daily,
+        validate_cross_channel_revenue,
+    ] >> validate_dashboard_mvp

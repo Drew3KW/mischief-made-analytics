@@ -171,7 +171,7 @@ cleaned_family_names AS (
                                 r'^\[[^\]]+\]\s*',
                                 ''
                             ),
-                            r"(?i)\s*-\s*(unisex|ladies|womens|mens)?\s*-?\s*(xxs|xs|s|m|l|xl|xxl|xxxl|1x|2x|3x|4x|5x|6x|2xl|3xl|4xl|5xl|6xl|x-large|xx-large|xxx-large|2x-large|3x-large|4x-large|5x-large|6x-large)\s*$",
+                            r"(?i)\s*-\s*(unisex|ladies|womens|mens)?\s*-?\s*(xxs|xs|s|m|l|xl|xxl|xxxl|small|medium|large|x-small|xx-small|x-large|xx-large|xxx-large|1x|2x|3x|4x|5x|6x|2xl|3xl|4xl|5xl|6xl|2x-large|3x-large|4x-large|5x-large|6x-large)\s*$",
                             ''
                         ),
                         r'(?i)\s+(unisex|ladies|womens|mens)\s+body\s*$',

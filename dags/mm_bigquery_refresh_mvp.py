@@ -28,17 +28,18 @@ def build_bq_sql_task(
     sql_path = REPO_ROOT / sql_relative_path
 
     return BigQueryInsertJobOperator(
-	task_id=task_id,
-	gcp_conn_id=gcp_conn_id,
-	project_id=project_id,
-	location=location,
-	configuration={
-		"query": {
-		    "query": sql_path.read_text(),
-		    "useLegacySql": False,
-		}
-	},
+        task_id=task_id,
+        gcp_conn_id=gcp_conn_id,
+        project_id=project_id,
+        location=location,
+        configuration={
+            "query": {
+                "query": sql_path.read_text(),
+                "useLegacySql": False,
+            }
+        },
     )
+
 
 with DAG(
     dag_id="mm_bigquery_refresh_mvp",
@@ -47,11 +48,11 @@ with DAG(
     schedule=None,
     catchup=False,
     max_active_runs=1,
+    default_args=DEFAULT_ARGS,
     tags=["mischief-made", "bigquery", "portfolio", "mvp"],
 ) as dag:
 
     with TaskGroup(group_id="staging") as staging:
-
         stg_shopify_customers = build_bq_sql_task(
             task_id="stg_shopify_customers",
             sql_relative_path="sql/staging/stg_shopify_customers.sql",
@@ -73,7 +74,6 @@ with DAG(
         )
 
     with TaskGroup(group_id="marts") as marts:
-
         dim_products_historical = build_bq_sql_task(
             task_id="dim_products_historical",
             sql_relative_path="sql/marts/dim_products_historical.sql",
@@ -109,14 +109,19 @@ with DAG(
             sql_relative_path="sql/marts/fct_order_items.sql",
         )
 
+        fct_cross_channel_orders = build_bq_sql_task(
+            task_id="fct_cross_channel_orders",
+            sql_relative_path="sql/marts/fct_cross_channel_orders.sql",
+        )
+
         dim_products_historical >> dim_products
         dim_products >> product_family_map >> dim_product_families
         dim_customers >> fct_orders >> fct_order_items
         dim_product_families >> fct_order_items
         dim_products >> fct_order_items
+        fct_orders >> fct_cross_channel_orders
 
     with TaskGroup(group_id="analysis") as analysis:
-
         anl_product_performance_by_family = build_bq_sql_task(
             task_id="anl_product_performance_by_family",
             sql_relative_path="sql/analysis/product_performance_by_family.sql",
@@ -177,6 +182,31 @@ with DAG(
             sql_relative_path="sql/analysis/family_summary.sql",
         )
 
+        anl_dashboard_revenue_daily = build_bq_sql_task(
+            task_id="anl_dashboard_revenue_daily",
+            sql_relative_path="sql/analysis/dashboard_revenue_daily.sql",
+        )
+
+        anl_dashboard_revenue_monthly = build_bq_sql_task(
+            task_id="anl_dashboard_revenue_monthly",
+            sql_relative_path="sql/analysis/dashboard_revenue_monthly.sql",
+        )
+
+        anl_dashboard_channel_daily = build_bq_sql_task(
+            task_id="anl_dashboard_channel_daily",
+            sql_relative_path="sql/analysis/dashboard_channel_daily.sql",
+        )
+
+        anl_dashboard_product_family_summary = build_bq_sql_task(
+            task_id="anl_dashboard_product_family_summary",
+            sql_relative_path="sql/analysis/dashboard_product_family_summary.sql",
+        )
+
+        anl_dashboard_customer_health = build_bq_sql_task(
+            task_id="anl_dashboard_customer_health",
+            sql_relative_path="sql/analysis/dashboard_customer_health.sql",
+        )
+
         anl_product_performance_by_family >> anl_product_revenue_monthly_by_family
         anl_product_revenue_monthly_by_family >> anl_product_family_recent_trends
 
@@ -226,6 +256,10 @@ with DAG(
             anl_product_family_customer_mix,
         ] >> anl_family_summary
 
+        anl_dashboard_revenue_daily >> anl_dashboard_revenue_monthly
+        anl_family_summary >> anl_dashboard_product_family_summary
+        anl_customer_summary >> anl_dashboard_customer_health
+
     with TaskGroup(group_id="validation") as validation:
         validate_dim_customers = build_bq_sql_task(
             task_id="validate_dim_customers",
@@ -252,11 +286,23 @@ with DAG(
             sql_relative_path="sql/validation/assertions/anl_daily_kpi_summary_assertions.sql",
         )
 
+        validate_dashboard_mvp = build_bq_sql_task(
+            task_id="validate_dashboard_mvp",
+            sql_relative_path="sql/validation/dashboard_mvp_validation.sql",
+        )
+
         [
             validate_dim_customers,
             validate_fct_orders,
             validate_fct_order_items,
             validate_product_family_models,
         ] >> validate_anl_daily_kpi_summary
+
+        [
+            anl_dashboard_revenue_monthly,
+            anl_dashboard_channel_daily,
+            anl_dashboard_product_family_summary,
+            anl_dashboard_customer_health,
+        ] >> validate_dashboard_mvp
 
     staging >> marts >> analysis >> validation
