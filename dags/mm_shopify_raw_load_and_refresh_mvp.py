@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from airflow.sdk import TaskGroup
 from google.cloud import bigquery
 
@@ -377,6 +377,16 @@ with DAG(
             sql_relative_path="sql/analysis/family_summary.sql",
         )
 
+        anl_dashboard_product_family_summary = build_bq_sql_task(
+            task_id="anl_dashboard_product_family_summary",
+            sql_relative_path="sql/analysis/dashboard_product_family_summary.sql",
+        )
+
+        anl_dashboard_customer_health = build_bq_sql_task(
+            task_id="anl_dashboard_customer_health",
+            sql_relative_path="sql/analysis/dashboard_customer_health.sql",
+        )
+
         anl_product_performance_by_family >> anl_product_revenue_monthly_by_family
         anl_product_revenue_monthly_by_family >> anl_product_family_recent_trends
 
@@ -425,6 +435,9 @@ with DAG(
             anl_product_family_recent_trends,
             anl_product_family_customer_mix,
         ] >> anl_family_summary
+
+        anl_family_summary >> anl_dashboard_product_family_summary
+        anl_customer_summary >> anl_dashboard_customer_health
 
     with TaskGroup(group_id="validation") as validation:
         validate_dim_customers = build_bq_sql_task(

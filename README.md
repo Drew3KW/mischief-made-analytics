@@ -1,416 +1,468 @@
 # Mischief Made Analytics
 
-Analytics engineering portfolio project for Mischief Made, an apparel brand.
+Mischief Made Analytics is a BigQuery and Airflow analytics engineering project for Mischief Made, an apparel business selling through Shopify, Etsy, and other channels.
 
-This project is both:
+The project serves two purposes:
 
-1. A real business decision-support system for Mischief Made
-2. A flagship portfolio project for an analytics engineering / data engineering career pivot
+1. Build a real business decision-support system for Mischief Made.
+2. Serve as a flagship analytics engineering / data engineering portfolio project.
 
-The project uses BigQuery, SQL, Airflow, Docker, Shopify data, and Etsy data to model sales, products, customers, revenue trends, and cross-channel business performance.
+The current system ingests Shopify and Etsy data, models trusted business metrics in BigQuery, validates core outputs, orchestrates refreshes with Airflow, and powers a first Looker Studio business dashboard MVP.
 
-## Goals
-
-- Build a reliable analytics warehouse for Mischief Made
-- Support analysis of revenue, products, customers, and trends
-- Practice production-style analytics engineering workflows
-- Demonstrate SQL, BigQuery, Airflow, Docker, Git, API ingestion, and data modeling skills
-- Create a foundation for future BI dashboards, dbt, and Snowflake migration
-
-## Stack
+## Current Stack
 
 - BigQuery
+- SQL
 - Shopify CSV exports
 - Shopify Admin API
 - Etsy Open API
-- SQL
 - Apache Airflow 3
 - Docker Compose
-- WSL / Ubuntu
+- WSL / Ubuntu local development
 - VS Code
 - GitHub
+- Looker Studio
 
-## Warehouse structure
+## Current Status
 
-- `raw`: canonical raw source tables
-- `raw_load`: source-file loads, API landing tables, candidates, backups, state tables, and operational validation data
-- `staging`: cleaned and typed source models
-- `marts`: dimensional models, fact tables, and selected reusable business models
-- `sql/analysis`: business-facing analysis SQL
-- `sql/validation`: QA and validation SQL
-- `dags`: Airflow DAGs
-- `docs/milestones`: milestone writeups
-- `docs/spikes`: exploratory technical notes
-- `docs/operations`: operational runbooks
-- `scripts`: local helper and API ingestion scripts
+The project currently supports:
 
-## Source systems
+- Shopify CSV fallback ingestion
+- Shopify API landing and canonical raw refresh
+- Etsy API historical landing/backfill
+- Etsy payment enrichment
+- Etsy recent refresh orchestration
+- Shopify staging, marts, and analysis models
+- Cross-channel Shopify/Etsy revenue modeling
+- Dashboard-facing BigQuery views
+- Looker Studio Business Dashboard MVP
+- Validation queries for key marts, analysis outputs, cross-channel revenue, and dashboard outputs
 
-Current:
+## Repository Structure
 
-- Shopify orders CSV export
-- Shopify products CSV export
-- Shopify customers CSV export
-- Shopify Admin API product, variant, customer, order, and line item data
-- Etsy Open API receipts, receipt transactions, and receipt payments
+- `dags/`
+  - Airflow DAGs for local orchestration
 
-Planned:
+- `scripts/`
+  - Python scripts for API extraction, landing, and backfill workflows
 
-- Faire
-- Etsy Ads
-- Pinterest Ads
-- BI/dashboard outputs
+- `sql/raw/`
+  - Raw rebuild, promotion, candidate, and rollback SQL
 
-## Core models
+- `sql/staging/`
+  - Staging models
 
-Staging:
+- `sql/marts/`
+  - Core facts, dimensions, and shared semantic models
 
-- `stg_shopify_order_items`
-- `stg_shopify_orders`
-- `stg_shopify_products`
-- `stg_shopify_customers`
+- `sql/analysis/`
+  - Business-facing analysis and dashboard views
 
-Marts:
+- `sql/validation/`
+  - Validation queries and assertion-style checks
 
-- `dim_products`
-- `dim_products_historical`
-- `product_family_map`
-- `dim_product_families`
-- `dim_customers`
-- `fct_order_items`
-- `fct_orders`
-- `fct_cross_channel_orders`
+- `docs/`
+  - Milestone docs, runbooks, and spike notes
 
-Business-facing analysis includes product-family performance, customer behavior, cohort retention, RFM segmentation, daily KPIs, monthly summaries, API-vs-CSV reconciliation outputs, and cross-channel Shopify/Etsy revenue analysis.
+## Local-Only Files and Folders
 
-## Cross-channel revenue outputs
+The following local files and folders are not committed:
 
-Current cross-channel outputs:
+- `.env`
+- `keys/`
+- `logs/`
+- `local_data/shopify/`
+- `local_data/shopify_api_spike/`
+- `local_data/shopify_bulk_spike/`
+- `local_data/shopify_api_landing/`
+- `local_data/etsy_api_spike/`
 
-```text
-marts.fct_cross_channel_orders
-analysis.cross_channel_revenue_daily
-analysis.cross_channel_revenue_daily_pivot
-```
+Local secrets and OAuth tokens stay outside version control.
 
-The cross-channel revenue model combines:
+## Airflow and Local Development
 
-- Shopify order facts from mature Shopify marts
-- Etsy receipt/payment landing data from Etsy API latest tables
+Local Airflow runs through Docker Compose.
 
-Cross-channel order keys are channel-aware:
+Current services include:
 
-```text
-shopify:<order_number>
-etsy:<receipt_id>
-```
+- `postgres`
+- `airflow-apiserver`
+- `airflow-scheduler`
+- `airflow-dag-processor`
+- `airflow-init`
 
-This avoids key collisions while preserving the practical source-system order identifiers.
+Current Docker/Airflow support files include:
 
-## Orchestration
+- `docker-compose.yml`
+- `Dockerfile.airflow`
+- `airflow/requirements.txt`
+- `.env.example`
+- `.dockerignore`
 
-The project uses Docker Compose as the preferred local Airflow runtime.
+Local GCP authentication uses:
 
-### Primary Shopify refresh DAG
+- `keys/gcp-sa.json`
+- `GOOGLE_APPLICATION_CREDENTIALS`
+- environment-backed `google_cloud_default` Airflow connection
 
-```text
-mm_shopify_api_canonical_refresh_mvp
-```
+Shopify and Etsy credentials are passed through local `.env`.
 
-This master DAG orchestrates:
+## Current DAGs
 
-```text
+### Active / operational DAGs
+
+- `mm_bigquery_refresh_mvp`
+  - Rebuilds staging, marts, analysis, dashboard-facing views, and validation from current canonical raw tables.
+
+- `mm_shopify_api_canonical_refresh_mvp`
+  - Master automated Shopify API canonical refresh DAG.
+
+- `mm_etsy_recent_refresh_mvp`
+  - Runs rolling recent Etsy landing, promotes recent candidates to latest tables, validates Etsy landing, rebuilds cross-channel revenue outputs, rebuilds cross-channel dashboard views, and validates outputs.
+
+- `mm_shopify_raw_load_and_refresh_mvp`
+  - Manual Shopify CSV fallback load plus warehouse refresh.
+
+### Historical / backfill DAGs
+
+- `mm_etsy_historical_backfill_mvp`
+  - Completed Etsy historical receipt and transaction backfill.
+  - Paused after completion.
+
+- `mm_etsy_historical_payments_backfill_mvp`
+  - Completed Etsy historical payment enrichment.
+  - Paused after completion.
+
+### Shopify helper/spike DAGs
+
+- `mm_shopify_api_extract_spike`
+- `mm_shopify_bulk_operation_spike`
+- `mm_shopify_api_products_landing_mvp`
+- `mm_shopify_api_customers_landing_mvp`
+- `mm_shopify_api_orders_landing_mvp`
+
+## Shopify Pipeline
+
+The Shopify pipeline supports both CSV fallback ingestion and API-backed canonical refresh.
+
+The current automated Shopify flow is:
+
 Shopify API landing
+-> API landing freshness validation
 -> API raw candidates
--> API raw candidate validation gate
+-> API raw candidate validation
 -> hybrid raw candidates
--> hybrid raw candidate validation gate
+-> hybrid raw candidate validation
 -> latest canonical raw backup
 -> canonical raw replacement
 -> warehouse refresh
--> canonical raw replacement validation gate
-```
+-> canonical raw replacement validation
 
-Trigger-only Shopify helper DAGs:
+Canonical raw Shopify tables:
 
-```text
-mm_shopify_api_orders_landing_mvp
-mm_shopify_api_customers_landing_mvp
-mm_shopify_api_products_landing_mvp
-mm_bigquery_refresh_mvp
-```
+- `raw.shopify_orders`
+- `raw.shopify_products`
+- `raw.shopify_customers`
 
-Additional Shopify DAGs:
+Shopify API canonical refresh preserves historical CSV-derived order history before the API cutover date and uses API-forward rows on or after the cutover date.
 
-```text
-mm_shopify_raw_load_and_refresh_mvp
-mm_shopify_api_extract_spike
-mm_shopify_bulk_operation_spike
-```
+API-unavailable legacy CSV fields are retained as nullable fields where needed to preserve downstream compatibility.
 
-The CSV ingestion DAG remains the known-good Shopify fallback path.
+Rollback backup tables include:
 
-### Primary Etsy recent refresh DAG
+- `raw_load.shopify_products_pre_automated_refresh_backup_latest`
+- `raw_load.shopify_customers_pre_automated_refresh_backup_latest`
+- `raw_load.shopify_orders_pre_automated_refresh_backup_latest`
 
-```text
-mm_etsy_recent_refresh_mvp
-```
+Operational runbook:
 
-This DAG keeps the current Etsy landing and cross-channel revenue layer fresh.
+- `docs/operations/shopify_api_canonical_refresh_runbook.md`
 
-Flow:
+## Etsy Pipeline
 
-```text
+The Etsy pipeline supports:
+
+- OAuth-based local API access
+- receipt landing
+- receipt transaction landing
+- receipt payment landing
+- historical receipt and transaction backfill
+- historical payment enrichment
+- rolling recent refresh orchestration
+
+Core Etsy grains:
+
+- receipts = order/header grain
+- receipt transactions = order-item grain
+- receipt payments = payment/fee/net grain
+- ledger entries = payout/accounting reconciliation grain
+
+Current latest Etsy landing tables:
+
+- `raw_load.etsy_receipts_api_latest`
+- `raw_load.etsy_receipt_transactions_api_latest`
+- `raw_load.etsy_receipt_payments_api_latest`
+
+The current Etsy recent refresh flow is:
+
 Etsy recent API landing
 -> recent candidate promotion to latest
 -> Etsy landing validation gate
 -> fct_cross_channel_orders
--> cross_channel_revenue_daily
--> cross_channel_revenue_daily_pivot
+-> cross-channel revenue views
+-> dashboard revenue views
 -> cross-channel validation gate
-```
+-> dashboard validation gate
 
-### Etsy historical backfill DAGs
+Known Etsy API edge cases:
 
-Completed historical backfill DAGs:
+- some receipt payment endpoint calls return Etsy 404s
+- some Etsy transaction rows have blank SKUs
+- Etsy payment net may reflect deductions beyond the visible fee amount, including tax treatment and marketplace payment behavior
 
-```text
-mm_etsy_historical_backfill_mvp
-mm_etsy_historical_payments_backfill_mvp
-```
+## Core Modeling Principles
 
-These DAGs were used to backfill Etsy receipts, receipt transactions, and receipt payments. They are paused after completion.
+- Trusted dates are the default standard for business-facing analysis.
+- `customer_email` is the practical Shopify customer key.
+- `order_number` is the practical Shopify business-facing order key.
+- Etsy order identity starts from `receipt_id`.
+- Etsy order-item identity starts from `transaction_id`.
+- Cross-channel models use channel-aware keys.
+- Shared semantic logic lives upstream in reusable marts models.
+- Dashboard models should not re-implement product-family identity or customer identity logic.
+- Raw ingestion, landing, canonical raw rebuild, promotion, semantic modeling, BI outputs, and validation are separate concerns.
+- Local CSV file-drop ingestion remains the known-good Shopify fallback.
+- Shopify API ingestion is the automated canonical refresh path.
+- Etsy API ingestion has historical landing/backfill plus ongoing recent refresh orchestration.
 
-## Shopify API status
+## Current Core Models
 
-Working Shopify API coverage:
+### Shopify marts
 
-- Products
-- Product variants
-- Customers
-- Orders
-- Order line items
+- `marts.dim_customers`
+- `marts.dim_products_historical`
+- `marts.dim_products`
+- `marts.product_family_map`
+- `marts.dim_product_families`
+- `marts.fct_orders`
+- `marts.fct_order_items`
 
-Current API landing tables:
+### Cross-channel mart
 
-```text
-raw_load.shopify_products_api_latest
-raw_load.shopify_product_variants_api_latest
-raw_load.shopify_customers_api_latest
-raw_load.shopify_orders_api_latest
-raw_load.shopify_order_line_items_api_latest
-```
+- `marts.fct_cross_channel_orders`
 
-Current API raw candidate tables:
+This model combines mature Shopify order facts with Etsy receipt/payment landing data at one row per channel order.
 
-```text
-raw_load.shopify_products_api_raw_candidate
-raw_load.shopify_customers_api_raw_candidate
-raw_load.shopify_orders_api_raw_candidate
-```
+It uses channel-aware keys such as:
 
-Current hybrid raw candidate tables:
+- `shopify:<order_number>`
+- `etsy:<receipt_id>`
 
-```text
-raw_load.shopify_products_hybrid_raw_candidate
-raw_load.shopify_customers_hybrid_raw_candidate
-raw_load.shopify_orders_hybrid_raw_candidate
-```
+The model intentionally does not solve full cross-channel customer identity resolution or product-family harmonization.
 
-Current canonical raw tables use the validated API-backed hybrid pattern:
+## Analysis and Dashboard Views
 
-```text
-raw.shopify_products
-raw.shopify_customers
-raw.shopify_orders
-```
+### Existing analysis views
 
-For orders, canonical raw preserves CSV-derived history before the API cutover date and includes API-forward rows on or after the cutover date.
+Examples include:
 
-The legacy Shopify CSV raw orders schema is preserved, with API-unavailable legacy fields populated as `NULL` for API-forward rows.
+- `marts.anl_daily_kpi_summary`
+- `marts.anl_monthly_business_summary`
+- `marts.anl_customer_summary`
+- `marts.anl_family_summary`
+- `marts.anl_product_performance_by_family`
+- `marts.anl_product_revenue_monthly_by_family`
+- `marts.anl_product_family_recent_trends`
+- `marts.anl_product_family_customer_mix`
+- `marts.cross_channel_revenue_daily`
+- `marts.cross_channel_revenue_daily_pivot`
 
-Current automated backup tables:
+### Dashboard-facing views
 
-```text
-raw_load.shopify_products_pre_automated_refresh_backup_latest
-raw_load.shopify_customers_pre_automated_refresh_backup_latest
-raw_load.shopify_orders_pre_automated_refresh_backup_latest
-```
+Milestone 48 added a dashboard contract layer:
 
-Current API validation coverage:
+- `marts.anl_dashboard_revenue_daily`
+- `marts.anl_dashboard_revenue_monthly`
+- `marts.anl_dashboard_channel_daily`
+- `marts.anl_dashboard_product_family_summary`
+- `marts.anl_dashboard_customer_health`
 
-- Product and variant API landing validation
-- Product API-vs-CSV reconciliation
-- Customer API landing validation
-- Customer API-vs-CSV reconciliation
-- Order API landing validation
-- Order API-vs-CSV reconciliation
-- API shadow raw candidate validation
-- API shadow staging comparison
-- Hybrid raw candidate validation
-- Canonical raw rebuild dry-run validation
-- Canonical raw replacement validation
-- Automated canonical refresh validation gates
+These views power the Looker Studio Business Dashboard MVP.
 
-## Etsy API status
+## Business Dashboard MVP
 
-Working Etsy API coverage:
+The first dashboard MVP is built in Looker Studio using curated BigQuery views.
 
-- Authenticated shop/user lookup
-- Receipts
-- Receipt transactions
-- Receipt payments
-- Ledger entries explored during source spike
+Dashboard pages:
 
-Current Etsy latest landing tables:
+1. Executive Overview
+2. Monthly Business Trend
+3. Product Families
+4. Customer Health
 
-```text
-raw_load.etsy_receipts_api_latest
-raw_load.etsy_receipt_transactions_api_latest
-raw_load.etsy_receipt_payments_api_latest
-```
+Primary executive KPI:
 
-Historical Etsy receipt and transaction coverage has been backfilled to match the trusted Shopify modeling window beginning `2021-01-31`.
+- Post-Refund Revenue
 
-Historical Etsy payment enrichment has also been completed. Receipt-level 404 responses from the Etsy payment endpoint are recorded as expected skipped receipts rather than treated as pipeline failures.
+Other executive metrics include:
 
-Current Etsy validation coverage:
+- Gross Revenue
+- Completed Orders
+- Units Sold
+- AOV
+- Shopify revenue
+- Etsy revenue
+- Etsy fees where available
 
-- landing row counts
-- required key checks
-- duplicate receipt/payment/transaction key checks
-- receipt/transaction parent-child checks
-- payment coverage checks
-- blank SKU review checks
-- cross-channel revenue validation
+Product Families and Customer Health are intentionally Shopify-only in this milestone. Cross-channel product-family harmonization and customer identity resolution are deferred.
 
-## Local development
+## Revenue Semantics
 
-Start Airflow:
+The dashboard uses conservative revenue definitions.
 
-```bash
-docker compose up airflow-init
-docker compose up -d
-```
+- Gross Revenue
+  - customer/order revenue before refunds
 
-Open Airflow:
+- Post-Refund Revenue
+  - revenue after refunds
+  - primary cross-channel business KPI for the dashboard
 
-```text
-http://localhost:8080
-```
+- Etsy Fees Recorded
+  - Etsy fee amount where receipt payment records are available
 
-Check services:
+- Channel Payment Net
+  - channel-reported payment net where available
+  - not treated as fully reconciled accounting net
 
-```bash
-docker compose ps
-```
+The project does not yet model full profit because COGS, ad spend, payout reconciliation, and complete accounting treatment are deferred.
 
-Check DAG discovery:
+## Validation
 
-```bash
-docker compose exec airflow-apiserver airflow dags list
-```
+Validation exists across multiple layers, including:
 
-Check DAG import errors:
+- Shopify marts
+- Shopify analysis outputs
+- product-family models
+- Etsy landing
+- cross-channel revenue
+- dashboard MVP outputs
 
-```bash
-docker compose exec airflow-apiserver airflow dags list-import-errors
-```
+Dashboard validation file:
 
-Restart Airflow services after adding or changing DAGs:
+- `sql/validation/dashboard_mvp_validation.sql`
 
-```bash
-docker compose restart airflow-dag-processor airflow-scheduler airflow-apiserver
-```
+This validates:
 
-Stop Airflow:
+- daily dashboard row shape
+- monthly dashboard row shape
+- channel daily row shape
+- product-family dashboard row shape
+- customer-health dashboard row shape
+- daily totals against `fct_cross_channel_orders`
+- monthly totals against daily dashboard totals
+- channel totals against dashboard daily totals
+- duplicate date/month/key checks
+- invalid revenue share checks
+- Shopify-only dashboard scope checks
 
-```bash
-docker compose down
-```
+## Milestone History
 
-Remove stale containers if needed:
+### Milestone 44 - Etsy Source Integration Spike
 
-```bash
-docker compose down --remove-orphans
-```
+- Registered and approved Etsy Open API application.
+- Completed OAuth flow.
+- Confirmed access to shop/user lookup, receipts, transactions, payments, and ledger entries.
+- Created local Etsy API probe script and spike documentation.
 
-## Local-only files
+### Milestone 45 - Etsy Orders Landing MVP
 
-These files and folders are required or generated locally and should not be committed:
+- Added Etsy receipt, transaction, and payment landing.
+- Created latest landing tables in `raw_load`.
+- Added Etsy landing validation.
+- Kept Etsy isolated from marts.
 
-```text
-.env
-keys/gcp-sa.json
-local_data/shopify/*.csv
-local_data/shopify_api_spike/
-local_data/shopify_bulk_spike/
-local_data/shopify_api_landing/
-local_data/etsy_api_spike/
-logs/
-```
+### Milestone 46 - Cross-Channel Revenue Model MVP
 
-The committed `.env.example` documents expected local environment variables.
+- Added `fct_cross_channel_orders`.
+- Added daily cross-channel revenue analysis outputs.
+- Combined Shopify and Etsy revenue into first cross-channel model.
+- Preserved channel-aware keys.
 
-## Modeling principles
+### Milestone 47A - Etsy Historical Receipts and Transactions Backfill
 
-- Trusted dates are the default for business-facing analysis
-- `order_number` is the practical Shopify business-facing order key
-- `customer_email` is the practical Shopify customer key
-- Etsy order identity starts from `receipt_id`
-- Etsy order-item identity starts from `transaction_id`
-- Cross-channel models use channel-aware keys
-- Shared semantic logic should live upstream in reusable marts models
-- `fct_order_items` remains at order-item grain
-- Summary-layer models should be BI-friendly and built on validated upstream logic
-- Raw ingestion and canonical raw rebuild are separate concerns
-- API landing, candidate shaping, canonical promotion, and warehouse refresh are separate steps
-- CSV ingestion remains available as a Shopify fallback path
-- Automated refresh paths should include validation gates and rollback awareness
+- Backfilled Etsy receipts and transactions to match the trusted Shopify modeling window beginning `2021-01-31`.
+- Created historical backfill state table.
+- Completed all receipt/transaction chunks.
+- Promoted deduplicated candidates into latest Etsy landing tables.
 
-## Current status
+### Milestone 47B - Etsy Historical Payments Enrichment
 
-Completed:
+- Backfilled Etsy receipt payment records.
+- Added payment-specific state tracking.
+- Tracked skipped 404 receipts separately.
+- Promoted payment candidates into latest Etsy payment table.
+- Added active Etsy recent refresh DAG.
+- Paused historical Etsy backfill DAGs after completion.
 
-- Analysis Pack v1
-- Dashboard-ready summary layers
-- Dockerized local Airflow orchestration
-- Local Shopify CSV ingestion
-- Machine-readable validation tasks
-- Shopify Admin API extraction spike
-- Shopify Bulk Operation proof of concept
-- Isolated Shopify API landing for products, customers, and orders
-- API-vs-CSV reconciliation for products, customers, and orders
-- Scheduled local Shopify API landing
-- Shopify API canonical raw rebuild planning
-- Shopify API shadow raw candidate tables
-- Shopify API shadow staging comparison
-- Shopify API hybrid raw candidate tables
-- Shopify API canonical raw rebuild dry run
-- Shopify API production canonical raw replacement MVP
-- Shopify API automated canonical refresh MVP
-- Shopify API operational hardening and runbook
-- Etsy source integration spike
-- Etsy orders landing MVP
-- Cross-channel revenue model MVP
-- Etsy historical receipts and transactions backfill
-- Etsy historical payments enrichment
-- Etsy recent refresh orchestration
+### Milestone 48 - Business Dashboard MVP
 
-Next focus:
+- Added dashboard-facing BigQuery views.
+- Added dashboard validation.
+- Wired dashboard views into Airflow refresh DAGs.
+- Fixed upstream product-family display-name cleanup.
+- Built the first Looker Studio dashboard MVP.
+- Established Post-Refund Revenue as the primary cross-channel executive revenue KPI.
 
-- Business Dashboard MVP
-- Etsy staging and marts
-- Cross-channel customer/product hardening
+## Current Roadmap
 
-## Roadmap
+Near-term roadmap:
 
-- Business dashboard MVP
-- Etsy staging and marts
-- Cross-channel customer/product hardening
-- Cloud-hosted scheduled ingestion and refresh
+- Milestone 49 - Etsy staging and marts
+- Milestone 50 - Cross-channel customer and product hardening
+
+Deferred future work:
+
+- Etsy listing/product dimension modeling
+- Etsy payout/accounting reconciliation
+- cross-channel product-family harmonization
+- cross-channel customer identity resolution
+- COGS/profit modeling
+- ad spend integration
 - Faire integration
-- Etsy Ads integration
-- Pinterest Ads integration
-- Cross-channel marketing analysis
-- Eventual migration to dbt + Snowflake
+- dbt migration
+- Snowflake version
+- AI/RAG interface over the warehouse
+
+## Common Commands
+
+Run the main warehouse refresh DAG from Airflow UI or CLI:
+
+    docker compose exec airflow-scheduler airflow dags trigger mm_bigquery_refresh_mvp
+
+Run the Etsy recent refresh DAG:
+
+    docker compose exec airflow-scheduler airflow dags trigger mm_etsy_recent_refresh_mvp
+
+Check DAG imports:
+
+    docker compose exec airflow-scheduler airflow dags list
+
+Run dashboard validation manually:
+
+    bq query --use_legacy_sql=false < sql/validation/dashboard_mvp_validation.sql
+
+Run Python compile checks on DAGs:
+
+    python -m py_compile dags/mm_bigquery_refresh_mvp.py
+    python -m py_compile dags/mm_etsy_recent_refresh_mvp.py
+    python -m py_compile dags/mm_shopify_raw_load_and_refresh_mvp.py
+
+Remove local Python cache files:
+
+    find dags -name "__pycache__" -type d -prune -exec rm -rf {} +
+
+## Notes
+
+This is an active learning and portfolio project. The modeling favors explicit, conservative business definitions over premature completeness.
+
+Known boundaries are documented rather than hidden. This is especially important for cross-channel identity, product-family harmonization, tax, Etsy payout behavior, and accounting net revenue.
