@@ -73,6 +73,21 @@ with DAG(
             sql_relative_path="sql/staging/stg_shopify_products.sql",
         )
 
+        stg_etsy_receipts = build_bq_sql_task(
+            task_id="stg_etsy_receipts",
+            sql_relative_path="sql/staging/stg_etsy_receipts.sql",
+        )
+
+        stg_etsy_receipt_transactions = build_bq_sql_task(
+            task_id="stg_etsy_receipt_transactions",
+            sql_relative_path="sql/staging/stg_etsy_receipt_transactions.sql",
+        )
+
+        stg_etsy_receipt_payments = build_bq_sql_task(
+            task_id="stg_etsy_receipt_payments",
+            sql_relative_path="sql/staging/stg_etsy_receipt_payments.sql",
+        )
+
     with TaskGroup(group_id="marts") as marts:
         dim_products_historical = build_bq_sql_task(
             task_id="dim_products_historical",
@@ -109,6 +124,31 @@ with DAG(
             sql_relative_path="sql/marts/fct_order_items.sql",
         )
 
+        fct_etsy_orders = build_bq_sql_task(
+            task_id="fct_etsy_orders",
+            sql_relative_path="sql/marts/fct_etsy_orders.sql",
+        )
+
+        fct_etsy_order_items = build_bq_sql_task(
+            task_id="fct_etsy_order_items",
+            sql_relative_path="sql/marts/fct_etsy_order_items.sql",
+        )
+
+        fct_etsy_payments = build_bq_sql_task(
+            task_id="fct_etsy_payments",
+            sql_relative_path="sql/marts/fct_etsy_payments.sql",
+        )
+
+        dim_etsy_customers = build_bq_sql_task(
+            task_id="dim_etsy_customers",
+            sql_relative_path="sql/marts/dim_etsy_customers.sql",
+        )
+
+        dim_etsy_listings = build_bq_sql_task(
+            task_id="dim_etsy_listings",
+            sql_relative_path="sql/marts/dim_etsy_listings.sql",
+        )
+
         fct_cross_channel_orders = build_bq_sql_task(
             task_id="fct_cross_channel_orders",
             sql_relative_path="sql/marts/fct_cross_channel_orders.sql",
@@ -119,7 +159,14 @@ with DAG(
         dim_customers >> fct_orders >> fct_order_items
         dim_product_families >> fct_order_items
         dim_products >> fct_order_items
-        fct_orders >> fct_cross_channel_orders
+
+        fct_etsy_orders >> dim_etsy_customers
+        fct_etsy_order_items >> dim_etsy_listings
+
+        [
+            fct_orders,
+            fct_etsy_orders,
+        ] >> fct_cross_channel_orders
 
     with TaskGroup(group_id="analysis") as analysis:
         anl_product_performance_by_family = build_bq_sql_task(
@@ -286,6 +333,21 @@ with DAG(
             sql_relative_path="sql/validation/assertions/anl_daily_kpi_summary_assertions.sql",
         )
 
+        validate_etsy_staging = build_bq_sql_task(
+            task_id="validate_etsy_staging",
+            sql_relative_path="sql/validation/etsy_staging_validation.sql",
+        )
+
+        validate_etsy_marts = build_bq_sql_task(
+            task_id="validate_etsy_marts",
+            sql_relative_path="sql/validation/etsy_marts_validation.sql",
+        )
+
+        validate_etsy_dimensions = build_bq_sql_task(
+            task_id="validate_etsy_dimensions",
+            sql_relative_path="sql/validation/etsy_dimensions_validation.sql",
+        )
+
         validate_dashboard_mvp = build_bq_sql_task(
             task_id="validate_dashboard_mvp",
             sql_relative_path="sql/validation/dashboard_mvp_validation.sql",
@@ -297,6 +359,8 @@ with DAG(
             validate_fct_order_items,
             validate_product_family_models,
         ] >> validate_anl_daily_kpi_summary
+
+        validate_etsy_staging >> validate_etsy_marts >> validate_etsy_dimensions
 
         [
             anl_dashboard_revenue_monthly,
