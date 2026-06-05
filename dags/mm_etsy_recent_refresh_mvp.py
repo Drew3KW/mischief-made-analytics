@@ -243,6 +243,31 @@ with DAG(
         validation_sql_relative_path="sql/validation/etsy_dimensions_validation.sql",
     )
 
+    cross_channel_customer_bridge = build_bq_sql_task(
+        task_id="cross_channel_customer_bridge",
+        sql_relative_path="sql/marts/cross_channel_customer_bridge.sql",
+    )
+
+    cross_channel_product_family_bridge = build_bq_sql_task(
+        task_id="cross_channel_product_family_bridge",
+        sql_relative_path="sql/marts/cross_channel_product_family_bridge.sql",
+    )
+
+    dim_cross_channel_customers = build_bq_sql_task(
+        task_id="dim_cross_channel_customers",
+        sql_relative_path="sql/marts/dim_cross_channel_customers.sql",
+    )
+
+    dim_cross_channel_product_families = build_bq_sql_task(
+        task_id="dim_cross_channel_product_families",
+        sql_relative_path="sql/marts/dim_cross_channel_product_families.sql",
+    )
+
+    validate_cross_channel_identity_hardening = build_bq_validation_gate_task(
+        task_id="validate_cross_channel_identity_hardening_no_failures",
+        validation_sql_relative_path="sql/validation/cross_channel_identity_hardening_validation.sql",
+    )
+
     fct_cross_channel_orders = build_bq_sql_task(
         task_id="fct_cross_channel_orders",
         sql_relative_path="sql/marts/fct_cross_channel_orders.sql",
@@ -319,7 +344,20 @@ with DAG(
         dim_etsy_listings,
     ] >> validate_etsy_dimensions
 
-    validate_etsy_dimensions >> fct_cross_channel_orders
+    validate_etsy_dimensions >> [
+        cross_channel_customer_bridge,
+        cross_channel_product_family_bridge,
+    ]
+
+    cross_channel_customer_bridge >> dim_cross_channel_customers
+    cross_channel_product_family_bridge >> dim_cross_channel_product_families
+
+    [
+        dim_cross_channel_customers,
+        dim_cross_channel_product_families,
+    ] >> validate_cross_channel_identity_hardening
+
+    validate_cross_channel_identity_hardening >> fct_cross_channel_orders
 
     fct_cross_channel_orders >> [
         cross_channel_revenue_daily,

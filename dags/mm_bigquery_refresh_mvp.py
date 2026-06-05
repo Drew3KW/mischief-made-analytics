@@ -7,7 +7,6 @@ from airflow import DAG
 from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 from airflow.sdk import TaskGroup
 
-
 # Repo root = parent of the dags/ folder
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,7 +50,6 @@ with DAG(
     default_args=DEFAULT_ARGS,
     tags=["mischief-made", "bigquery", "portfolio", "mvp"],
 ) as dag:
-
     with TaskGroup(group_id="staging") as staging:
         stg_shopify_customers = build_bq_sql_task(
             task_id="stg_shopify_customers",
@@ -149,6 +147,26 @@ with DAG(
             sql_relative_path="sql/marts/dim_etsy_listings.sql",
         )
 
+        cross_channel_customer_bridge = build_bq_sql_task(
+            task_id="cross_channel_customer_bridge",
+            sql_relative_path="sql/marts/cross_channel_customer_bridge.sql",
+        )
+
+        cross_channel_product_family_bridge = build_bq_sql_task(
+            task_id="cross_channel_product_family_bridge",
+            sql_relative_path="sql/marts/cross_channel_product_family_bridge.sql",
+        )
+
+        dim_cross_channel_customers = build_bq_sql_task(
+            task_id="dim_cross_channel_customers",
+            sql_relative_path="sql/marts/dim_cross_channel_customers.sql",
+        )
+
+        dim_cross_channel_product_families = build_bq_sql_task(
+            task_id="dim_cross_channel_product_families",
+            sql_relative_path="sql/marts/dim_cross_channel_product_families.sql",
+        )
+
         fct_cross_channel_orders = build_bq_sql_task(
             task_id="fct_cross_channel_orders",
             sql_relative_path="sql/marts/fct_cross_channel_orders.sql",
@@ -156,12 +174,24 @@ with DAG(
 
         dim_products_historical >> dim_products
         dim_products >> product_family_map >> dim_product_families
+
         dim_customers >> fct_orders >> fct_order_items
         dim_product_families >> fct_order_items
         dim_products >> fct_order_items
 
         fct_etsy_orders >> dim_etsy_customers
         fct_etsy_order_items >> dim_etsy_listings
+
+        [
+            dim_customers,
+            dim_etsy_customers,
+        ] >> cross_channel_customer_bridge >> dim_cross_channel_customers
+
+        [
+            product_family_map,
+            dim_product_families,
+            dim_etsy_listings,
+        ] >> cross_channel_product_family_bridge >> dim_cross_channel_product_families
 
         [
             fct_orders,
@@ -252,6 +282,16 @@ with DAG(
         anl_dashboard_customer_health = build_bq_sql_task(
             task_id="anl_dashboard_customer_health",
             sql_relative_path="sql/analysis/dashboard_customer_health.sql",
+        )
+
+        anl_cross_channel_customer_overlap_audit = build_bq_sql_task(
+            task_id="anl_cross_channel_customer_overlap_audit",
+            sql_relative_path="sql/analysis/cross_channel_customer_overlap_audit.sql",
+        )
+
+        anl_cross_channel_product_family_mapping_audit = build_bq_sql_task(
+            task_id="anl_cross_channel_product_family_mapping_audit",
+            sql_relative_path="sql/analysis/cross_channel_product_family_mapping_audit.sql",
         )
 
         anl_product_performance_by_family >> anl_product_revenue_monthly_by_family
@@ -348,6 +388,11 @@ with DAG(
             sql_relative_path="sql/validation/etsy_dimensions_validation.sql",
         )
 
+        validate_cross_channel_identity_hardening = build_bq_sql_task(
+            task_id="validate_cross_channel_identity_hardening",
+            sql_relative_path="sql/validation/cross_channel_identity_hardening_validation.sql",
+        )
+
         validate_dashboard_mvp = build_bq_sql_task(
             task_id="validate_dashboard_mvp",
             sql_relative_path="sql/validation/dashboard_mvp_validation.sql",
@@ -361,6 +406,12 @@ with DAG(
         ] >> validate_anl_daily_kpi_summary
 
         validate_etsy_staging >> validate_etsy_marts >> validate_etsy_dimensions
+
+        [
+            validate_dim_customers,
+            validate_product_family_models,
+            validate_etsy_dimensions,
+        ] >> validate_cross_channel_identity_hardening
 
         [
             anl_dashboard_revenue_monthly,
