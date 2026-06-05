@@ -7,7 +7,7 @@ The project serves two purposes:
 1. Build a real business decision-support system for Mischief Made.
 2. Serve as a flagship analytics engineering / data engineering portfolio project.
 
-The current system ingests Shopify and Etsy data, models trusted business metrics in BigQuery, validates core outputs, orchestrates refreshes with Airflow, and powers a first Looker Studio business dashboard MVP.
+The current system ingests Shopify and Etsy data, models trusted business metrics in BigQuery, validates core outputs, orchestrates refreshes with Airflow, and powers a private Looker Studio business dashboard MVP.
 
 ## Current Stack
 
@@ -33,10 +33,11 @@ The project currently supports:
 - Etsy payment enrichment
 - Etsy recent refresh orchestration
 - Shopify staging, marts, and analysis models
+- Etsy staging, marts, and dimension models
 - Cross-channel Shopify/Etsy revenue modeling
 - Dashboard-facing BigQuery views
-- Looker Studio Business Dashboard MVP
-- Validation queries for key marts, analysis outputs, cross-channel revenue, and dashboard outputs
+- Private Looker Studio Business Dashboard MVP
+- Validation queries for key marts, analysis outputs, Etsy models, cross-channel revenue, and dashboard outputs
 
 ## Repository Structure
 
@@ -112,13 +113,13 @@ Shopify and Etsy credentials are passed through local `.env`.
 ### Active / operational DAGs
 
 - `mm_bigquery_refresh_mvp`
-  - Rebuilds staging, marts, analysis, dashboard-facing views, and validation from current canonical raw tables.
+  - Rebuilds staging, marts, analysis, dashboard-facing views, and validation from current canonical raw/latest tables.
 
 - `mm_shopify_api_canonical_refresh_mvp`
   - Master automated Shopify API canonical refresh DAG.
 
 - `mm_etsy_recent_refresh_mvp`
-  - Runs rolling recent Etsy landing, promotes recent candidates to latest tables, validates Etsy landing, rebuilds cross-channel revenue outputs, rebuilds cross-channel dashboard views, and validates outputs.
+  - Runs rolling recent Etsy landing, promotes recent candidates to latest tables, validates Etsy landing, rebuilds Etsy staging/marts/dimensions, validates Etsy models, rebuilds cross-channel revenue outputs, rebuilds cross-channel dashboard views, and validates outputs.
 
 - `mm_shopify_raw_load_and_refresh_mvp`
   - Manual Shopify CSV fallback load plus warehouse refresh.
@@ -189,6 +190,8 @@ The Etsy pipeline supports:
 - historical receipt and transaction backfill
 - historical payment enrichment
 - rolling recent refresh orchestration
+- Etsy-native staging models
+- Etsy-native fact and dimension models
 
 Core Etsy grains:
 
@@ -208,17 +211,23 @@ The current Etsy recent refresh flow is:
 Etsy recent API landing
 -> recent candidate promotion to latest
 -> Etsy landing validation gate
+-> Etsy staging models
+-> Etsy staging validation gate
+-> Etsy fact models
+-> Etsy mart validation gate
+-> Etsy dimension models
+-> Etsy dimension validation gate
 -> fct_cross_channel_orders
 -> cross-channel revenue views
 -> dashboard revenue views
 -> cross-channel validation gate
 -> dashboard validation gate
 
-Known Etsy API edge cases:
+Known Etsy API/source behaviors:
 
 - some receipt payment endpoint calls return Etsy 404s
 - some Etsy transaction rows have blank SKUs
-- Etsy payment net may reflect deductions beyond the visible fee amount, including tax treatment and marketplace payment behavior
+- Etsy payment net may reflect deductions beyond the visible fee amount, including tax and marketplace payment behavior
 
 ## Core Modeling Principles
 
@@ -227,6 +236,8 @@ Known Etsy API edge cases:
 - `order_number` is the practical Shopify business-facing order key.
 - Etsy order identity starts from `receipt_id`.
 - Etsy order-item identity starts from `transaction_id`.
+- Etsy customer identity starts from `buyer_user_id`.
+- Etsy listing/product identity starts from `listing_id`.
 - Cross-channel models use channel-aware keys.
 - Shared semantic logic lives upstream in reusable marts models.
 - Dashboard models should not re-implement product-family identity or customer identity logic.
@@ -246,6 +257,20 @@ Known Etsy API edge cases:
 - `marts.dim_product_families`
 - `marts.fct_orders`
 - `marts.fct_order_items`
+
+### Etsy staging
+
+- `staging.stg_etsy_receipts`
+- `staging.stg_etsy_receipt_transactions`
+- `staging.stg_etsy_receipt_payments`
+
+### Etsy marts
+
+- `marts.fct_etsy_orders`
+- `marts.fct_etsy_order_items`
+- `marts.fct_etsy_payments`
+- `marts.dim_etsy_customers`
+- `marts.dim_etsy_listings`
 
 ### Cross-channel mart
 
@@ -287,7 +312,7 @@ Milestone 48 added a dashboard contract layer:
 - `marts.anl_dashboard_product_family_summary`
 - `marts.anl_dashboard_customer_health`
 
-These views power the Looker Studio Business Dashboard MVP.
+These views power the private Looker Studio Business Dashboard MVP.
 
 ## Business Dashboard MVP
 
@@ -314,7 +339,9 @@ Other executive metrics include:
 - Etsy revenue
 - Etsy fees where available
 
-Product Families and Customer Health are intentionally Shopify-only in this milestone. Cross-channel product-family harmonization and customer identity resolution are deferred.
+Product Families and Customer Health are intentionally Shopify-only in the current dashboard. Cross-channel product-family harmonization and customer identity resolution are deferred.
+
+The live dashboard is not linked from this public repository because it contains real business revenue, order, product, and customer data.
 
 ## Revenue Semantics
 
@@ -344,26 +371,21 @@ Validation exists across multiple layers, including:
 - Shopify analysis outputs
 - product-family models
 - Etsy landing
+- Etsy staging
+- Etsy marts
+- Etsy dimensions
 - cross-channel revenue
 - dashboard MVP outputs
+
+Etsy validation files:
+
+- `sql/validation/etsy_staging_validation.sql`
+- `sql/validation/etsy_marts_validation.sql`
+- `sql/validation/etsy_dimensions_validation.sql`
 
 Dashboard validation file:
 
 - `sql/validation/dashboard_mvp_validation.sql`
-
-This validates:
-
-- daily dashboard row shape
-- monthly dashboard row shape
-- channel daily row shape
-- product-family dashboard row shape
-- customer-health dashboard row shape
-- daily totals against `fct_cross_channel_orders`
-- monthly totals against daily dashboard totals
-- channel totals against dashboard daily totals
-- duplicate date/month/key checks
-- invalid revenue share checks
-- Shopify-only dashboard scope checks
 
 ## Milestone History
 
@@ -379,7 +401,7 @@ This validates:
 - Added Etsy receipt, transaction, and payment landing.
 - Created latest landing tables in `raw_load`.
 - Added Etsy landing validation.
-- Kept Etsy isolated from marts.
+- Kept Etsy isolated in `raw_load`.
 
 ### Milestone 46 - Cross-Channel Revenue Model MVP
 
@@ -410,22 +432,30 @@ This validates:
 - Added dashboard validation.
 - Wired dashboard views into Airflow refresh DAGs.
 - Fixed upstream product-family display-name cleanup.
-- Built the first Looker Studio dashboard MVP.
+- Built the first private Looker Studio dashboard MVP.
 - Established Post-Refund Revenue as the primary cross-channel executive revenue KPI.
+
+### Milestone 49 - Etsy Staging and Marts MVP
+
+- Added Etsy-native staging models.
+- Added Etsy-native order, order-item, and payment facts.
+- Added Etsy-native customer and listing dimensions.
+- Added Etsy staging, mart, and dimension validations.
+- Wired Etsy models and validations into the main and recent-refresh DAGs.
+- Preserved cross-channel customer and product harmonization as future work.
 
 ## Current Roadmap
 
 Near-term roadmap:
 
-- Milestone 49 - Etsy staging and marts
 - Milestone 50 - Cross-channel customer and product hardening
 
 Deferred future work:
 
-- Etsy listing/product dimension modeling
-- Etsy payout/accounting reconciliation
 - cross-channel product-family harmonization
 - cross-channel customer identity resolution
+- Etsy listing catalog ingestion
+- Etsy payout/accounting reconciliation
 - COGS/profit modeling
 - ad spend integration
 - Faire integration
@@ -446,6 +476,13 @@ Run the Etsy recent refresh DAG:
 Check DAG imports:
 
     docker compose exec airflow-scheduler airflow dags list
+    docker compose exec airflow-scheduler airflow dags list-import-errors
+
+Run Etsy validations manually:
+
+    bq query --use_legacy_sql=false < sql/validation/etsy_staging_validation.sql
+    bq query --use_legacy_sql=false < sql/validation/etsy_marts_validation.sql
+    bq query --use_legacy_sql=false < sql/validation/etsy_dimensions_validation.sql
 
 Run dashboard validation manually:
 

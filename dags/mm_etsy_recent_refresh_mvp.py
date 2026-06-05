@@ -125,7 +125,7 @@ with DAG(
     default_args=DEFAULT_ARGS,
     description=(
         "Refresh recent Etsy landing tables, promote latest Etsy raw_load "
-        "tables, and rebuild cross-channel revenue models."
+        "tables, and rebuild Etsy and cross-channel revenue models."
     ),
     start_date=datetime(2026, 5, 26, 0, 0, tzinfo=UTC),
     schedule="30 21 * * *",
@@ -188,6 +188,61 @@ with DAG(
         validation_sql_relative_path="sql/validation/etsy_orders_landing_validation.sql",
     )
 
+    stg_etsy_receipts = build_bq_sql_task(
+        task_id="stg_etsy_receipts",
+        sql_relative_path="sql/staging/stg_etsy_receipts.sql",
+    )
+
+    stg_etsy_receipt_transactions = build_bq_sql_task(
+        task_id="stg_etsy_receipt_transactions",
+        sql_relative_path="sql/staging/stg_etsy_receipt_transactions.sql",
+    )
+
+    stg_etsy_receipt_payments = build_bq_sql_task(
+        task_id="stg_etsy_receipt_payments",
+        sql_relative_path="sql/staging/stg_etsy_receipt_payments.sql",
+    )
+
+    validate_etsy_staging = build_bq_validation_gate_task(
+        task_id="validate_etsy_staging_no_failures",
+        validation_sql_relative_path="sql/validation/etsy_staging_validation.sql",
+    )
+
+    fct_etsy_orders = build_bq_sql_task(
+        task_id="fct_etsy_orders",
+        sql_relative_path="sql/marts/fct_etsy_orders.sql",
+    )
+
+    fct_etsy_order_items = build_bq_sql_task(
+        task_id="fct_etsy_order_items",
+        sql_relative_path="sql/marts/fct_etsy_order_items.sql",
+    )
+
+    fct_etsy_payments = build_bq_sql_task(
+        task_id="fct_etsy_payments",
+        sql_relative_path="sql/marts/fct_etsy_payments.sql",
+    )
+
+    validate_etsy_marts = build_bq_validation_gate_task(
+        task_id="validate_etsy_marts_no_failures",
+        validation_sql_relative_path="sql/validation/etsy_marts_validation.sql",
+    )
+
+    dim_etsy_customers = build_bq_sql_task(
+        task_id="dim_etsy_customers",
+        sql_relative_path="sql/marts/dim_etsy_customers.sql",
+    )
+
+    dim_etsy_listings = build_bq_sql_task(
+        task_id="dim_etsy_listings",
+        sql_relative_path="sql/marts/dim_etsy_listings.sql",
+    )
+
+    validate_etsy_dimensions = build_bq_validation_gate_task(
+        task_id="validate_etsy_dimensions_no_failures",
+        validation_sql_relative_path="sql/validation/etsy_dimensions_validation.sql",
+    )
+
     fct_cross_channel_orders = build_bq_sql_task(
         task_id="fct_cross_channel_orders",
         sql_relative_path="sql/marts/fct_cross_channel_orders.sql",
@@ -230,7 +285,41 @@ with DAG(
 
     etsy_recent_landing = run_etsy_recent_landing()
 
-    etsy_recent_landing >> promote_recent_catchup >> validate_etsy_landing >> fct_cross_channel_orders
+    etsy_recent_landing >> promote_recent_catchup >> validate_etsy_landing
+
+    validate_etsy_landing >> [
+        stg_etsy_receipts,
+        stg_etsy_receipt_transactions,
+        stg_etsy_receipt_payments,
+    ]
+
+    [
+        stg_etsy_receipts,
+        stg_etsy_receipt_transactions,
+        stg_etsy_receipt_payments,
+    ] >> validate_etsy_staging
+
+    validate_etsy_staging >> [
+        fct_etsy_orders,
+        fct_etsy_order_items,
+        fct_etsy_payments,
+    ]
+
+    [
+        fct_etsy_orders,
+        fct_etsy_order_items,
+        fct_etsy_payments,
+    ] >> validate_etsy_marts
+
+    fct_etsy_orders >> dim_etsy_customers
+    fct_etsy_order_items >> dim_etsy_listings
+
+    [
+        dim_etsy_customers,
+        dim_etsy_listings,
+    ] >> validate_etsy_dimensions
+
+    validate_etsy_dimensions >> fct_cross_channel_orders
 
     fct_cross_channel_orders >> [
         cross_channel_revenue_daily,
