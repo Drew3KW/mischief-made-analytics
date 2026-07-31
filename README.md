@@ -42,6 +42,8 @@ The warehouse currently supports:
 * Dashboard-facing BigQuery views
 * Private Looker Studio Business Dashboard MVP
 * Validation across source, staging, marts, analysis, cross-channel, dashboard, and profitability layers
+* Product and channel profitability KPI, ranking, monthly trend, and coverage-audit views
+* Qualified product-family gross-margin rankings with explicit eligibility rules
 
 ## Repository Structure
 
@@ -212,6 +214,10 @@ The cross-channel bridge and dimension models provide a conservative first-pass 
 * `marts.product_family_cogs_override_map`
 * `marts.anl_product_profitability_summary`
 * `marts.anl_product_profitability_monthly`
+* `marts.anl_profitability_kpi_summary`
+* `marts.anl_product_profitability_rankings`
+* `marts.anl_channel_profitability_monthly`
+* `marts.anl_product_profitability_coverage_audit`
 
 The COGS and profitability foundation estimates item-level gross profit before fees using a conservative matching ladder:
 
@@ -222,7 +228,7 @@ The COGS and profitability foundation estimates item-level gross profit before f
 5. manual exclusion
 6. missing or review status
 
-The model exposes COGS resolution status and coverage fields so profitability reporting remains transparent, especially where older historical products do not have complete COGS coverage.
+The model exposes COGS resolution status and coverage fields so profitability reporting remains transparent, especially where older historical products do not have complete COGS coverage. The profitability analysis layer provides monthly channel KPIs, product-family revenue and gross-profit rankings, qualified margin rankings, conservative month-over-month comparisons, and recent-versus-historical COGS coverage auditing. Legacy product-family keys may be consolidated by exact name for reporting, while source-key lineage remains visible.
 
 ## Cross-Channel Hardening
 
@@ -287,6 +293,7 @@ Validation exists across:
 * cross-channel customer/product hardening
 * COGS and product profitability foundation
 * dashboard outputs
+* Product and channel profitability reporting
 
 Key validation files include:
 
@@ -311,6 +318,7 @@ Recent completed milestones:
 * Milestone 49 - Etsy Staging and Marts MVP
 * Milestone 50 - Cross-Channel Customer and Product Hardening
 * Milestone 51 - COGS and Profitability Foundation
+* Milestone 52 - Product & Channel Profitability MVP
 
 Detailed milestone notes live in `docs/milestones/`.
 
@@ -318,9 +326,9 @@ Detailed milestone notes live in `docs/milestones/`.
 
 Near-term work:
 
-* Use the profitability foundation to support product and channel profitability reporting.
-* Continue improving recent/current COGS coverage through manual overrides.
-* Add ad spend integration.
+* Add ad spend integration to support profitability after marketing costs.
+* Extend the private Looker Studio dashboard with validated profitability views.
+* Continue improving current COGS coverage through explicit manual overrides.
 * Add Faire integration.
 * Add new BI outputs only when upstream validation supports them.
 
@@ -374,6 +382,10 @@ Run profitability foundation validation manually:
 ```bash
 bq query --use_legacy_sql=false < sql/validation/profitability_foundation_validation.sql
 ```
+
+Run product and channel profitability validation manually:
+
+bq query --use_legacy_sql=false < sql/validation/product_profitability_mvp_validation.sql
 
 Load local COGS inputs manually before refreshing profitability models:
 
