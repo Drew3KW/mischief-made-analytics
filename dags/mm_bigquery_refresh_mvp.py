@@ -394,6 +394,26 @@ with DAG(
             sql_relative_path="sql/analysis/product_profitability_monthly.sql",
         )
 
+        anl_profitability_kpi_summary = build_bq_sql_task(
+            task_id="anl_profitability_kpi_summary",
+            sql_relative_path="sql/analysis/profitability_kpi_summary.sql",
+        )
+
+        anl_product_profitability_rankings = build_bq_sql_task(
+            task_id="anl_product_profitability_rankings",
+            sql_relative_path="sql/analysis/product_profitability_rankings.sql",
+        )
+
+        anl_channel_profitability_monthly = build_bq_sql_task(
+            task_id="anl_channel_profitability_monthly",
+            sql_relative_path="sql/analysis/channel_profitability_monthly.sql",
+        )
+
+        anl_product_profitability_coverage_audit = build_bq_sql_task(
+            task_id="anl_product_profitability_coverage_audit",
+            sql_relative_path="sql/analysis/product_profitability_coverage_audit.sql",
+        )
+
         # Existing product analytics dependencies.
         anl_product_performance_by_family >> anl_product_revenue_monthly_by_family
         anl_product_revenue_monthly_by_family >> anl_product_family_recent_trends
@@ -453,7 +473,17 @@ with DAG(
         # Profitability views.
         # Monthly does not technically depend on summary, but chaining keeps
         # the profitability section easy to read in the Airflow graph.
-        anl_product_profitability_summary >> anl_product_profitability_monthly
+        (
+            anl_product_profitability_summary
+            >> anl_product_profitability_monthly
+            >> anl_profitability_kpi_summary
+            >> anl_channel_profitability_monthly
+        )
+
+        fct_cross_channel_order_items >> [
+            anl_product_profitability_rankings,
+            anl_product_profitability_coverage_audit,
+        ]
 
     with TaskGroup(group_id="validation") as validation:
         validate_dim_customers = build_bq_sql_task(
@@ -511,6 +541,11 @@ with DAG(
             sql_relative_path="sql/validation/profitability_foundation_validation.sql",
         )
 
+        validate_product_profitability_mvp = build_bq_sql_task(
+            task_id="validate_product_profitability_mvp",
+            sql_relative_path="sql/validation/product_profitability_mvp_validation.sql",
+        )
+
         [
             validate_dim_customers,
             validate_fct_orders,
@@ -534,4 +569,14 @@ with DAG(
             validate_cross_channel_identity_hardening,
         ] >> validate_profitability_foundation
 
+        [
+            anl_profitability_kpi_summary,
+            anl_product_profitability_rankings,
+            anl_channel_profitability_monthly,
+            anl_product_profitability_coverage_audit,
+        ] >> validate_product_profitability_mvp
+
+        validate_profitability_foundation >> validate_product_profitability_mvp
+
     staging >> marts >> analysis >> validation
+    
